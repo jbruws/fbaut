@@ -2,10 +2,14 @@ import sys
 import os
 import json
 
+# TODO:
+# - использование git настраивается в rc
+# - поддержка github. При инициализации локального репо сразу запрашивается ссылка на гх, при бэкапе делается commit + push
+# - hard-ссылки (ln -h) вместо копирования файлов, для инкрементальности и красивого git diff'а
+# - пофиксить проверку включённости cron
+
 MAIN_PATH = os.path.dirname(__file__) + "/" + os.path.basename(__file__)
-#USERNAME = os.popen("echo $USERNAME").read()
 USERNAME = os.getlogin()
-#print(USERNAME)
 
 def help(*args):
     print("""
@@ -66,15 +70,16 @@ def backup(*args):
         os.system("cp -r --parents " + i + " configs")
 
 def schedule(*args):
+    args = args[0]
     cronjob_types = {"d": "@daily", "w": "@weekly", "m": "@monthly"}
 
-    args = args[0]
+    # Проверяем, включён ли cron
     if "disabled" in os.popen("systemctl --no-pager status cronie").read():
         print("cron disabled. Enabling service...")
         os.system("sudo systemctl enable cronie")
     
+    # Создаём файл (при необходимости) и читаем
     crontab_path = "/var/spool/cron/{}".format(USERNAME)
-    #print(crontab_path) 
     if not os.path.isfile(crontab_path):
         os.system("sudo touch {}".format(crontab_path))
     f = open(crontab_path, "r")
@@ -83,13 +88,14 @@ def schedule(*args):
 
     conbat_cronjob = cronjob_types[args[0]] + " " + MAIN_PATH + " backup # conbat job\n"
     
-    print(len(crontab_contents))
+    # удаляем старую запись и добавляем новую
     for i in range(len(crontab_contents)-1):
         print(i)
         if "# conbat job" in crontab_contents[i]:
             print(i, crontab_contents[i])
             crontab_contents.pop(i)
             crontab_contents.insert(i, conbat_cronjob)
+            break
 
     f = open(crontab_path, "w")
     for i in crontab_contents:
