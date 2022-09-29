@@ -2,11 +2,11 @@ import sys
 import os
 import json
 
-def help():
-    print("help_info") # TODO
+def help(*args):
+    print("help_info")
 
-def cache(arg):
-    filenames = arg
+def cache(*args):
+    filenames = args[0]
     # Если rc-файл пуст, присваиваем переменной пустой словарь
     if not os.path.isfile(".conbatrc"):
         rc_contents = {}
@@ -28,31 +28,44 @@ def cache(arg):
     f.write(json.dumps(rc_contents, indent=4))
     f.close()
 
-def backup():
+def backup(*args):
+    args = args[0]
+    if len(args) == 0:
+        args = ["."] # стандартная директория - текущая
     # Если папка configs есть, удаляем и создаём заново.
-    file_list = json.load(open(".conbatrc", "r"))
+    file_list = json.load(open(args[0] + "/.conbatrc", "r"))
     if os.path.isdir("configs"):
         os.system("rm -r configs")
     os.mkdir("configs")
 
     for i in file_list.keys(): 
         # TODO: сохранить структуру каталогов
-        os.system("rsync -az -f\"+ */\" " + i + " configs")
+        os.system("cp -r --parents " + i + " configs")
+        #os.system("rsync -az -f\"+ */\" " + i + " configs")
+
+def schedule(*args):
+    pass # TODO
 
 def main():
+    args = sys.argv
+    if len(args) > 1: # Если указана функция для запуска...
+        globals()[args[1]]() # ...запускаем только её
+        return 0
+
+    function_map = {
+            "help": help,
+            "cache": cache,
+            "backup": backup,
+            "schedule": schedule,
+            "quit": sys.exit
+    }
+
     while True:
         command = input("> ").split(" ")
-        
-        if command[0] == "help":
-            help() 
-        elif command[0] == "init":
-            init()
-        elif command[0] == "cache":
-            cache(command[1:])
-        elif command[0] == "backup":
-            backup()
-        elif command[0] == "quit":
-            exit()
+        if command[0] not in function_map:
+            print("WARNING: unknown command")
+        else:
+            function_map[command[0]](command[1:])
 
 if __name__ == "__main__":
     main()
