@@ -2,8 +2,32 @@ import sys
 import os
 import json
 
+MAIN_PATH = os.path.dirname(__file__) + "/" + os.path.basename(__file__)
+#USERNAME = os.popen("echo $USERNAME").read()
+USERNAME = os.getlogin()
+#print(USERNAME)
+
 def help(*args):
-    print("help_info")
+    print("""
+        -- help                 - вывести список команд\n
+        -- cache [список папок] - добавить файлы/папки в .conbatrc\n
+        -- backup               - произвести бэкап файлов из .conbatrc\n
+        -- schedule [d/w/m]     - производить авто-бэкап ежедневно/еженедельно/ежемесячно\n
+        -- show                 - вывести содержимое .conbatrc в консоль
+        -- quit                 - выйти
+    """)
+
+def show_rc(*args):
+    try:
+        contents = json.load(open(".conbatrc", "r"))
+    except FileNotFoundError:
+        print("ERROR: .conbatrc not found.")
+
+    for i in list(contents.keys()):
+        if contents[i] == "f":
+            print("file: " + i)
+        else:
+            print("dir:  " + i)
 
 def cache(*args):
     filenames = args[0]
@@ -39,12 +63,38 @@ def backup(*args):
     os.mkdir("configs")
 
     for i in file_list.keys(): 
-        # TODO: сохранить структуру каталогов
         os.system("cp -r --parents " + i + " configs")
-        #os.system("rsync -az -f\"+ */\" " + i + " configs")
 
 def schedule(*args):
-    pass # TODO
+    cronjob_types = {"d": "@daily", "w": "@weekly", "m": "@monthly"}
+
+    args = args[0]
+    if "disabled" in os.popen("systemctl --no-pager status cronie").read():
+        print("cron disabled. Enabling service...")
+        os.system("sudo systemctl enable cronie")
+    
+    crontab_path = "/var/spool/cron/{}".format(USERNAME)
+    #print(crontab_path) 
+    if not os.path.isfile(crontab_path):
+        os.system("sudo touch {}".format(crontab_path))
+    f = open(crontab_path, "r")
+    crontab_contents = f.readlines()
+    f.close()
+
+    conbat_cronjob = cronjob_types[args[0]] + " " + MAIN_PATH + " backup # conbat job\n"
+    
+    print(len(crontab_contents))
+    for i in range(len(crontab_contents)-1):
+        print(i)
+        if "# conbat job" in crontab_contents[i]:
+            print(i, crontab_contents[i])
+            crontab_contents.pop(i)
+            crontab_contents.insert(i, conbat_cronjob)
+
+    f = open(crontab_path, "w")
+    for i in crontab_contents:
+        f.write(i)
+    f.close()
 
 def main():
     args = sys.argv
@@ -57,6 +107,7 @@ def main():
             "cache": cache,
             "backup": backup,
             "schedule": schedule,
+            "show": show_rc,
             "quit": sys.exit
     }
 
