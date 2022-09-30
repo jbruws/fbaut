@@ -3,10 +3,8 @@ import os
 import json
 
 # TODO:
-# - использование git настраивается в rc
 # - поддержка github. При инициализации локального репо сразу запрашивается ссылка на гх, при бэкапе делается commit + push
 # - hard-ссылки (ln -h) вместо копирования файлов, для инкрементальности и красивого git diff'а
-# - пофиксить проверку включённости cron
 
 MAIN_PATH = os.path.dirname(__file__) + "/" + os.path.basename(__file__)
 USERNAME = os.getlogin()
@@ -25,7 +23,7 @@ def show_rc(*args):
     try:
         contents = json.load(open(".conbatrc", "r"))
     except FileNotFoundError:
-        print("ERROR: .conbatrc not found.")
+        print("ОШИБКА: .conbatrc не найден.")
 
     for i in list(contents.keys()):
         if contents[i] == "f":
@@ -50,7 +48,7 @@ def cache(*args):
         elif os.path.isdir(i):
             rc_contents[i] = "d"
         else:
-            print("WARNING: " + i + " is not an existing file/dir. Skipping...")
+            print(i + " - несуществующий файл/директория. Пропускаем...")
    
     f = open(".conbatrc", "w")
     f.write(json.dumps(rc_contents, indent=4))
@@ -69,33 +67,39 @@ def backup(*args):
     for i in file_list.keys(): 
         os.system("cp -r --parents " + i + " configs")
 
+# Всё ещё не работает, но концепт понятен. Допилю в Qt-версии
 def schedule(*args):
     args = args[0]
     cronjob_types = {"d": "@daily", "w": "@weekly", "m": "@monthly"}
+    cron_status = os.popen("systemctl --no-pager status cronie").read()
 
     # Проверяем, включён ли cron
-    if "disabled" in os.popen("systemctl --no-pager status cronie").read():
-        print("cron disabled. Enabling service...")
+    if "disabled; preset: disabled" in cron_status or "inactive (dead)" in cron_status:
+        print("cron выключен. Запускаем сервис...")
         os.system("sudo systemctl enable cronie")
+        os.system("sudo systemctl start cronie")
     
     # Создаём файл (при необходимости) и читаем
     crontab_path = "/var/spool/cron/{}".format(USERNAME)
     if not os.path.isfile(crontab_path):
+        print("Файла crontab для пользователя {} не существует. Создаём...".format(USERNAME))
         os.system("sudo touch {}".format(crontab_path))
+        os.system("sudo chown {} {}".format(USERNAME, crontab_path))
     f = open(crontab_path, "r")
     crontab_contents = f.readlines()
     f.close()
 
     conbat_cronjob = cronjob_types[args[0]] + " " + MAIN_PATH + " backup # conbat job\n"
-    
-    # удаляем старую запись и добавляем новую
+    conbat_cronjob_id = 0
+
+    # удаляем старую запись и добавляем новую на её место
     for i in range(len(crontab_contents)-1):
-        print(i)
         if "# conbat job" in crontab_contents[i]:
-            print(i, crontab_contents[i])
             crontab_contents.pop(i)
-            crontab_contents.insert(i, conbat_cronjob)
+            conbat_cronjob_id = i
             break
+
+    crontab_contents.insert(conbat_cronjob_id, conbat_cronjob)
 
     f = open(crontab_path, "w")
     for i in crontab_contents:
@@ -105,7 +109,7 @@ def schedule(*args):
 def main():
     args = sys.argv
     if len(args) > 1: # Если указана функция для запуска...
-        globals()[args[1]]() # ...запускаем только её
+        globals()[args[1]](args[2:]) # ...запускаем только её
         return 0
 
     function_map = {
