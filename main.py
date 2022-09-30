@@ -6,6 +6,8 @@ import json
 # - поддержка github. При инициализации локального репо сразу запрашивается ссылка на гх, при бэкапе делается commit + push
 # - hard-ссылки (ln -h) вместо копирования файлов, для инкрементальности и красивого git diff'а
 
+rc_dir = None
+rc_path = None
 MAIN_PATH = os.path.dirname(__file__) + "/" + os.path.basename(__file__)
 USERNAME = os.getlogin()
 
@@ -19,9 +21,16 @@ def help(*args):
         -- quit                 - выйти
     """)
 
+def set_rc(*args):
+    global rc_dir
+    global rc_path
+    #print(args)
+    rc_dir = args[0][0]
+    rc_path = rc_dir + "/.conbatrc"
+
 def show_rc(*args):
     try:
-        contents = json.load(open(".conbatrc", "r"))
+        contents = json.load(open(rc_path, "r"))
     except FileNotFoundError:
         print("ОШИБКА: .conbatrc не найден.")
 
@@ -34,10 +43,10 @@ def show_rc(*args):
 def cache(*args):
     filenames = args[0]
     # Если rc-файл пуст, присваиваем переменной пустой словарь
-    if not os.path.isfile(".conbatrc"):
+    if not os.path.isfile(rc_path):
         rc_contents = {}
     else:
-        f = open(".conbatrc", "r")
+        f = open(rc_path, "r")
         rc_contents = json.loads(f.read())
         f.close()
 
@@ -55,21 +64,27 @@ def cache(*args):
     f.close()
 
 def backup(*args):
-    args = args[0]
-    if len(args) == 0:
-        args = ["."] # стандартная директория - текущая
+    global rc_dir
+    global rc_path
+    #print(args)
+    if rc_dir == None: # если вызывается cron'ом
+        rc_dir = args[0][0]
+        rc_path = rc_dir + "/.conbatrc"
+
+    backup_dir = rc_dir + "/configs"
     # Если папка configs есть, удаляем и создаём заново.
-    file_list = json.load(open(args[0] + "/.conbatrc", "r"))
-    if os.path.isdir("configs"):
-        os.system("rm -r configs")
-    os.mkdir("configs")
+    file_list = json.load(open(rc_path, "r"))
+    if os.path.isdir(backup_dir):
+        os.system("rm -r " + backup_dir)
+    os.mkdir(backup_dir)
 
     for i in file_list.keys(): 
-        os.system("cp -r --parents " + i + " configs")
+        os.system("cp -r --parents " + i + " " + backup_dir)
 
 # Всё ещё не работает, но концепт понятен. Допилю в Qt-версии
 def schedule(*args):
-    args = args[0]
+    #print(args)
+    job_type = args[0][0]
     cronjob_types = {"d": "@daily", "w": "@weekly", "m": "@monthly"}
     cron_status = os.popen("systemctl --no-pager status cronie").read()
 
@@ -89,7 +104,7 @@ def schedule(*args):
     crontab_contents = f.readlines()
     f.close()
 
-    conbat_cronjob = cronjob_types[args[0]] + " " + MAIN_PATH + " backup # conbat job\n"
+    conbat_cronjob = cronjob_types[job_type] + " " + MAIN_PATH + " backup " + rc_dir + " # conbat job\n"
     conbat_cronjob_id = 0
 
     # удаляем старую запись и добавляем новую на её место
@@ -113,6 +128,7 @@ def main():
         return 0
 
     function_map = {
+            "set_rc": set_rc,
             "help": help,
             "cache": cache,
             "backup": backup,
@@ -123,8 +139,10 @@ def main():
 
     while True:
         command = input("> ").split(" ")
-        if command[0] not in function_map:
-            print("WARNING: unknown command")
+        if command[0] not in ["set_rc", "help", "quit"] and rc_dir == None:
+            print("ВНИМАНИЕ: не установлена директория с .conbatrc; запустите set_rc [путь к директории]")
+        elif command[0] not in function_map:
+            print("ВНИМАНИЕ: неизвестная команда")
         else:
             function_map[command[0]](command[1:])
 
