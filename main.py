@@ -4,7 +4,8 @@ import json
 
 # TODO:
 # - поддержка github. При инициализации локального репо сразу запрашивается ссылка на гх, при бэкапе делается commit + push
-# - hard-ссылки (ln -h) вместо копирования файлов, для инкрементальности и красивого git diff'а
+# - hard-ссылки (ln -h) вместо копирования файлов, для инкрементальности и красивого git diff'а 
+# - КАК Я БУДУ ПОДАВАТЬ КРОНУ ДАННЫЕ ДЛЯ ВХОДА В ГИТХАБ????????????
 
 rc_dir = None
 rc_path = None
@@ -63,6 +64,37 @@ def cache(*args):
     f.write(json.dumps(rc_contents, indent=4))
     f.close()
 
+# нерабочая версия со ссылками
+def cache_ln(*args):
+    global rc_path
+    global rc_dir
+    
+    backup_path = rc_dir + "/configs"
+    
+    f = args[0][0]
+    if not (os.path.isfile(f) or os.path.isdir(f)):
+        print("ВНИМАНИЕ: " + f + " - неизвестный файл.")
+        return 1
+    
+    if os.path.isfile(f):
+        file_parent_path = "/".join(f.split("/")[:-1])
+        print(backup_path + file_parent_path)
+        #os.system("mkdir -p " + backup_path + file_parent_path)
+        #os.system("ln " + f + " " + backup_path + file_parent_path + "/" + f)
+    else:
+        print(backup_path + f)
+        #os.system("mkdir -p " + backup_path + f)
+        subdirs = os.popen("find " + f + " -type d").read().split("\n")
+        print(subdirs)
+        for i in subdirs:
+            #os.system("mkdir -p " + backup_path + i)
+            print(i)
+        for i in subdirs:
+            orig_files = os.popen("find " + i + " -type f").read().split("\n") # почему-то выдаёт и файлы из папки со скриптом
+            for j in orig_files:
+                print(j, backup_path + j)
+                #os.system("ln " + j + " " + backup_path + j)
+
 def backup(*args):
     global rc_dir
     global rc_path
@@ -71,15 +103,15 @@ def backup(*args):
         rc_dir = args[0][0]
         rc_path = rc_dir + "/.conbatrc"
 
-    backup_dir = rc_dir + "/configs"
+    backup_path = rc_dir + "/configs"
     # Если папка configs есть, удаляем и создаём заново.
     file_list = json.load(open(rc_path, "r"))
-    if os.path.isdir(backup_dir):
-        os.system("rm -r " + backup_dir)
-    os.mkdir(backup_dir)
+    if os.path.isdir(backup_path):
+        os.system("rm -r " + backup_path)
+    os.mkdir(backup_path)
 
     for i in file_list.keys(): 
-        os.system("cp -r --parents " + i + " " + backup_dir)
+        os.system("cp -r --parents " + i + " " + backup_path)
 
 # Всё ещё не работает, но концепт понятен. Допилю в Qt-версии
 def schedule(*args):
