@@ -14,12 +14,14 @@ USERNAME = os.getlogin()
 
 def help(*args):
     print("""
-        -- help                 - вывести список команд\n
-        -- cache [список папок] - добавить файлы/папки в .conbatrc\n
-        -- backup               - произвести бэкап файлов из .conbatrc\n
-        -- schedule [d/w/m]     - производить авто-бэкап ежедневно/еженедельно/ежемесячно\n
-        -- show                 - вывести содержимое .conbatrc в консоль
-        -- quit                 - выйти
+        -- help                    - вывести список команд\n
+        -- cache [список папок]    - добавить файлы/папки в .conbatrc\n
+        -- set_rc /путь/к/папке    - задать рабочую директорию\n
+        -- backup                  - произвести бэкап файлов из .conbatrc\n
+        -- schedule [d/w/m]        - производить авто-бэкап ежедневно/еженедельно/ежемесячно\n
+        -- show                    - вывести содержимое .conbatrc в консоль\n
+        -- git_init [ссылка на гх] - создать локальный репозиторий git и связать его с репозиторием github\n
+        -- quit                    - выйти
     """)
 
 def set_rc(*args):
@@ -113,6 +115,23 @@ def backup(*args):
     for i in file_list.keys(): 
         os.system("cp -r --parents " + i + " " + backup_path)
 
+    # если есть git-репозиторий
+    if os.path.isdir(rc_dir + "/.git"):
+        os.chdir(rc_dir)
+        os.system('git add -A')
+        os.system('git commit -a -m "Новая копия"')
+        os.system('git push -u origin master')
+
+def git_init(*args):
+    origin_link = args[0][0]
+    if os.path.isdir(rc_dir + "/.git"):
+        print("ВНИМАНИЕ: репозиторий Git уже существует в рабочей директории.")
+        return -1
+    
+    os.chdir(rc_dir)
+    os.system("git init")
+    os.system("git remote add origin " + origin_link)
+
 # Всё ещё не работает, но концепт понятен. Допилю в Qt-версии
 def schedule(*args):
     #print(args)
@@ -166,6 +185,7 @@ def main():
             "backup": backup,
             "schedule": schedule,
             "show": show_rc,
+            "git_init": git_init,
             "quit": sys.exit
     }
 
