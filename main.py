@@ -62,40 +62,25 @@ def cache(*args):
         else:
             print(i + " - несуществующий файл/директория. Пропускаем...")
    
-    f = open(".conbatrc", "w")
+    f = open(rc_path, "w")
     f.write(json.dumps(rc_contents, indent=4))
     f.close()
 
-# нерабочая версия со ссылками
-def cache_ln(*args):
-    global rc_path
-    global rc_dir
+def uncache(*args):
+    filenames = args[0]
+    if not os.path.isfile(rc_path):
+        print("ОШИБКА: нечего удалять")
+        return -1
+    f = open(rc_path, "r")
+    rc_contents = json.loads(f.read())
+    f.close()
+    for i in filenames:
+        if i in rc_contents.keys():
+            del(rc_contents[i])
     
-    backup_path = rc_dir + "/configs"
-    
-    f = args[0][0]
-    if not (os.path.isfile(f) or os.path.isdir(f)):
-        print("ВНИМАНИЕ: " + f + " - неизвестный файл.")
-        return 1
-    
-    if os.path.isfile(f):
-        file_parent_path = "/".join(f.split("/")[:-1])
-        print(backup_path + file_parent_path)
-        #os.system("mkdir -p " + backup_path + file_parent_path)
-        #os.system("ln " + f + " " + backup_path + file_parent_path + "/" + f)
-    else:
-        print(backup_path + f)
-        #os.system("mkdir -p " + backup_path + f)
-        subdirs = os.popen("find " + f + " -type d").read().split("\n")
-        print(subdirs)
-        for i in subdirs:
-            #os.system("mkdir -p " + backup_path + i)
-            print(i)
-        for i in subdirs:
-            orig_files = os.popen("find " + i + " -type f").read().split("\n") # почему-то выдаёт и файлы из папки со скриптом
-            for j in orig_files:
-                print(j, backup_path + j)
-                #os.system("ln " + j + " " + backup_path + j)
+    f = open(rc_path, "w")
+    f.write(json.dumps(rc_contents, indent=4))
+    f.close()
 
 def backup(*args):
     global rc_dir
@@ -172,31 +157,24 @@ def schedule(*args):
         f.write(i)
     f.close()
 
+def quit(*args):
+    sys.exit()
+
 def main():
+    #print(globals())
     args = sys.argv
     if len(args) > 1: # Если указана функция для запуска...
         globals()[args[1]](args[2:]) # ...запускаем только её
         return 0
 
-    function_map = {
-            "set_rc": set_rc,
-            "help": help,
-            "cache": cache,
-            "backup": backup,
-            "schedule": schedule,
-            "show": show_rc,
-            "git_init": git_init,
-            "quit": sys.exit
-    }
-
     while True:
         command = input("> ").split(" ")
         if command[0] not in ["set_rc", "help", "quit"] and rc_dir == None:
             print("ВНИМАНИЕ: не установлена директория с .conbatrc; запустите set_rc [путь к директории]")
-        elif command[0] not in function_map:
+        elif command[0] not in globals():
             print("ВНИМАНИЕ: неизвестная команда")
         else:
-            function_map[command[0]](command[1:])
+            globals()[command[0]](command[1:])
 
 if __name__ == "__main__":
     main()
