@@ -3,12 +3,10 @@ import os
 import json
 
 # TODO:
-# - поддержка github. При инициализации локального репо сразу запрашивается ссылка на гх, при бэкапе делается commit + push
-# - hard-ссылки (ln -h) вместо копирования файлов, для инкрементальности и красивого git diff'а 
 # - КАК Я БУДУ ПОДАВАТЬ КРОНУ ДАННЫЕ ДЛЯ ВХОДА В ГИТХАБ????????????
 
 rc_dir = None
-rc_path = None
+rc_name = None
 MAIN_PATH = os.path.dirname(__file__) + "/" + os.path.basename(__file__)
 USERNAME = os.getlogin()
 
@@ -26,14 +24,14 @@ def help(*args):
 
 def set_rc(*args):
     global rc_dir
-    global rc_path
-    #print(args)
+    global rc_name
     rc_dir = args[0][0]
-    rc_path = rc_dir + "/.conbatrc"
+    os.chdir(rc_dir)
+    rc_name = ".conbatrc"
 
 def show_rc(*args):
     try:
-        contents = json.load(open(rc_path, "r"))
+        contents = json.load(open(rc_name, "r"))
     except FileNotFoundError:
         print("ОШИБКА: .conbatrc не найден.")
 
@@ -46,10 +44,10 @@ def show_rc(*args):
 def cache(*args):
     filenames = args[0]
     # Если rc-файл пуст, присваиваем переменной пустой словарь
-    if not os.path.isfile(rc_path):
+    if not os.path.isfile(rc_name):
         rc_contents = {}
     else:
-        f = open(rc_path, "r")
+        f = open(rc_name, "r")
         rc_contents = json.loads(f.read())
         f.close()
 
@@ -62,37 +60,35 @@ def cache(*args):
         else:
             print(i + " - несуществующий файл/директория. Пропускаем...")
    
-    f = open(rc_path, "w")
+    f = open(rc_name, "w")
     f.write(json.dumps(rc_contents, indent=4))
     f.close()
 
 def uncache(*args):
     filenames = args[0]
-    if not os.path.isfile(rc_path):
+    if not os.path.isfile(rc_name):
         print("ОШИБКА: нечего удалять")
         return -1
-    f = open(rc_path, "r")
+    f = open(rc_name, "r")
     rc_contents = json.loads(f.read())
     f.close()
     for i in filenames:
         if i in rc_contents.keys():
             del(rc_contents[i])
     
-    f = open(rc_path, "w")
+    f = open(rc_name, "w")
     f.write(json.dumps(rc_contents, indent=4))
     f.close()
 
 def backup(*args):
     global rc_dir
-    global rc_path
-    #print(args)
+    global rc_name
     if rc_dir == None: # если вызывается cron'ом
-        rc_dir = args[0][0]
-        rc_path = rc_dir + "/.conbatrc"
+        set_rc(args[0][0])
 
     backup_path = rc_dir + "/configs"
     # Если папка configs есть, удаляем и создаём заново.
-    file_list = json.load(open(rc_path, "r"))
+    file_list = json.load(open(rc_name, "r"))
     if os.path.isdir(backup_path):
         os.system("rm -r " + backup_path)
     os.mkdir(backup_path)
