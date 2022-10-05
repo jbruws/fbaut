@@ -100,7 +100,8 @@ def backup(*args):
     if os.path.isdir(rc_dir + "/.git"):
         os.chdir(rc_dir)
         os.system('git add -A')
-        os.system('git commit -a -m "Новая копия"')
+        commit_count = int(os.popen("git rev-list --count HEAD").read())
+        os.system('git commit -a -m "Копия #{}"'.format(commit_count + 1))
         os.system('git push -u origin master')
 
 def git_init(*args):
@@ -115,12 +116,11 @@ def git_init(*args):
 
 # Всё ещё не работает, но концепт понятен. Допилю в Qt-версии
 def schedule(*args):
-    #print(args)
     job_type = args[0][0]
     cronjob_types = {"d": "@daily", "w": "@weekly", "m": "@monthly"}
     cron_status = os.popen("systemctl --no-pager status cronie").read()
 
-    # Проверяем, включён ли cron
+    # Включаем cron при необходимости
     if "disabled; preset: disabled" in cron_status or "inactive (dead)" in cron_status:
         print("cron выключен. Запускаем сервис...")
         os.system("sudo systemctl enable cronie")
@@ -157,7 +157,6 @@ def quit(*args):
     sys.exit()
 
 def main():
-    #print(globals())
     args = sys.argv
     if len(args) > 1: # Если указана функция для запуска...
         globals()[args[1]](args[2:]) # ...запускаем только её
