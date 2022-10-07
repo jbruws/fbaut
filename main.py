@@ -7,6 +7,7 @@ import json
 
 rc_dir = None
 rc_name = None
+config_dir = None
 MAIN_PATH = os.path.dirname(__file__) + "/" + os.path.basename(__file__)
 USERNAME = os.getlogin()
 
@@ -14,10 +15,11 @@ def help(*args):
     print("""
         -- help                    - вывести список команд\n
         -- cache [список папок]    - добавить файлы/папки в .conbatrc\n
+        -- uncache [список папок]  - убрать файлы/папки из .conbatrc\n
         -- set_rc /путь/к/папке    - задать рабочую директорию\n
         -- backup                  - произвести бэкап файлов из .conbatrc\n
         -- schedule [d/w/m]        - производить авто-бэкап ежедневно/еженедельно/ежемесячно\n
-        -- show                    - вывести содержимое .conbatrc в консоль\n
+        -- show_rc                 - вывести содержимое .conbatrc в консоль\n
         -- git_init [ссылка на гх] - создать локальный репозиторий git и связать его с репозиторием github\n
         -- quit                    - выйти
     """)
@@ -25,8 +27,10 @@ def help(*args):
 def set_rc(*args):
     global rc_dir
     global rc_name
+    global config_dir
     rc_dir = args[0][0]
     os.chdir(rc_dir)
+    config_dir = rc_dir + "/configs"
     rc_name = ".conbatrc"
 
 def show_rc(*args):
@@ -86,33 +90,43 @@ def backup(*args):
     if rc_dir == None: # если вызывается cron'ом
         set_rc(args[0][0])
 
-    backup_path = rc_dir + "/configs"
-    # Если папка configs есть, удаляем и создаём заново.
     file_list = json.load(open(rc_name, "r"))
-    if os.path.isdir(backup_path):
-        os.system("rm -r " + backup_path)
-    os.mkdir(backup_path)
+    if not os.path.isdir(config_dir):
+        os.mkdir(config_dir)
+    else:
+        # трём все в папке бэкапов, кроме .git (и .gitignore?)
+        os.system("rm -r !(.git*)" + config_dir) 
 
     for i in file_list.keys(): 
-        os.system("cp -r --parents " + i + " " + backup_path)
+        os.system("cp -r --parents " + i + " " + config_dir)
 
     # если есть git-репозиторий
-    if os.path.isdir(rc_dir + "/.git"):
-        os.chdir(rc_dir)
+    if os.path.isdir(config_dir + "/.git"):
+        os.chdir(config_dir)
         os.system('git add -A')
-        commit_count = int(os.popen("git rev-list --count HEAD").read())
+        try:
+            commit_count = int(os.popen("git rev-list --count HEAD").read())
+        except ValueError: # По сути, этого не должно происходить
+            commit_count = 0
         os.system('git commit -a -m "Копия #{}"'.format(commit_count + 1))
         os.system('git push -u origin master')
+        os.chdir(rc_dir)
 
 def git_init(*args):
     origin_link = args[0][0]
-    if os.path.isdir(rc_dir + "/.git"):
+    if os.path.isdir(config_dir + "/.git"):
         print("ВНИМАНИЕ: репозиторий Git уже существует в рабочей директории.")
         return -1
+
+    if not os.path.isdir(config_dir):
+        os.mkdir(config_dir)
     
-    os.chdir(rc_dir)
+    os.chdir(config_dir)
     os.system("git init")
     os.system("git remote add origin " + origin_link)
+    os.system('git commit -a -m "Initial commit"')
+    os.system('git push -u origin master')
+    os.chdir(rc_dir)
 
 # Всё ещё не работает, но концепт понятен. Допилю в Qt-версии
 def schedule(*args):
@@ -156,6 +170,12 @@ def schedule(*args):
 def quit(*args):
     sys.exit()
 
+def preprocess(arg_list):
+    for i in range(len(arg_list)):
+        if "~" in arg_list[i]:
+            arg_list[i] = arg_list[i].replace("~", "/home/{}".format(USERNAME))
+    return arg_list
+
 def main():
     args = sys.argv
     if len(args) > 1: # Если указана функция для запуска...
@@ -164,6 +184,7 @@ def main():
 
     while True:
         command = input("> ").split(" ")
+        command = preprocess(command)
         if command[0] not in ["set_rc", "help", "quit"] and rc_dir == None:
             print("ВНИМАНИЕ: не установлена директория с .conbatrc; запустите set_rc [путь к директории]")
         elif command[0] not in globals():
