@@ -87,15 +87,19 @@ def uncache(*args):
 def backup(*args):
     global rc_dir
     global rc_name
+    global config_dir
+    
+    custom_commit_msg = True
     if rc_dir == None: # если вызывается cron'ом
         set_rc(args[0][0])
+        custom_commit_msg = False
 
     file_list = json.load(open(rc_name, "r"))
     if not os.path.isdir(config_dir):
         os.mkdir(config_dir)
     else:
         # трём все в папке бэкапов, кроме .git (и .gitignore?)
-        os.system("rm -r !(.git*)" + config_dir) 
+        os.system("rm -r !(.git*) " + config_dir) 
 
     for i in file_list.keys(): 
         os.system("cp -r --parents " + i + " " + config_dir)
@@ -104,12 +108,19 @@ def backup(*args):
     if os.path.isdir(config_dir + "/.git"):
         os.chdir(config_dir)
         os.system('git add -A')
-        try:
-            commit_count = int(os.popen("git rev-list --count HEAD").read())
-        except ValueError: # По сути, этого не должно происходить
-            commit_count = 0
-        os.system('git commit -a -m "Копия #{}"'.format(commit_count + 1))
-        os.system('git push -u origin master')
+
+        # используем пользовательское название коммита, если оно есть
+        if args != ([],) and custom_commit_msg: # TODO: сделать по-человечески
+            commit_msg = " ".join(args[0][:])
+        else:
+            try:
+                commit_count = int(os.popen("git rev-list --count HEAD").read())
+            except ValueError: # По сути, этого не должно происходить
+                commit_count = 0
+            commit_msg = "Копия #{}".format(commit_count + 1)
+            
+        os.system('git commit -a -m "{}"'.format(commit_msg))
+        os.system('git push')
         os.chdir(rc_dir)
 
 def git_init(*args):
