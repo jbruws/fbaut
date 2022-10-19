@@ -64,13 +64,40 @@ class ConfigManager:
             f.close()
 
         # Записываем, учитывая тип  (файл/директория)
+        # "nan" значит отсутствие маски
         for i in filenames:
             if os.path.isfile(i):
-                rc_contents[i] = "f"
+                rc_contents[i] = ["f", "nan"]
             elif os.path.isdir(i):
-                rc_contents[i] = "d"
+                rc_contents[i] = ["d", "nan"]
             else:
                 print(i + " - несуществующий файл/директория. Пропускаем...")
+       
+        f = open(self.rc_name, "w")
+        f.write(json.dumps(rc_contents, indent=4))
+        f.close()
+
+    # Знаю, что код дублируется из cache(), но мне пока что всё равно
+    def cache_mask(self, *args):
+        mask = args[0][-1]
+        filenames = args[0][0:-1]
+        
+        # Если rc-файл пуст, присваиваем переменной пустой словарь
+        if not os.path.isfile(self.rc_name):
+            rc_contents = {}
+        else:
+            f = open(self.rc_name, "r")
+            rc_contents = json.loads(f.read())
+            f.close()
+
+        # Записываем
+        for i in filenames:
+            if os.path.isfile(i):
+                print("Сохранять с маской можно только директории. Пропускаем...")
+            elif os.path.isdir(i):
+                rc_contents[i] = ["d", mask]
+            else:
+                print(i + " - несуществующая директория. Пропускаем...")
        
         f = open(self.rc_name, "w")
         f.write(json.dumps(rc_contents, indent=4))
@@ -105,8 +132,11 @@ class ConfigManager:
             # rm не стирает скрытые директории, так что .git остаётся
             os.system("rm -r " + self.config_dir + "/*") 
 
-        for i in file_list.keys(): 
-            os.system("cp -r --parents " + i + " " + self.config_dir)
+        for i in file_list.keys():
+            if file_list[i][1] == "nan": # без маски
+                os.system("cp -r --parents " + i + " " + self.config_dir)
+            else:
+                os.system("find " + i + " -name \"" + file_list[i][1] + "\" -exec cp --parents {} " + self.config_dir + " \;")
 
         # если есть git-репозиторий
         if os.path.isdir(self.config_dir + "/.git"):
