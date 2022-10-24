@@ -48,10 +48,10 @@ class ConfigManager:
             return 1
 
         for i in list(contents.keys()):
-            if contents[i] == "f":
-                print("file: " + i)
+            if contents[i][0] == "f":
+                print("file | {:>20} |".format(i))
             else:
-                print("dir:  " + i)
+                print("dir  | {:>20} | mask = {:>8}".format(i, contents[i][1]))
 
     def cache(self, *args):
         filenames = args[0]
@@ -64,12 +64,12 @@ class ConfigManager:
             f.close()
 
         # Записываем, учитывая тип  (файл/директория)
-        # "nan" значит отсутствие маски
+        # "*" значит отсутствие маски
         for i in filenames:
             if os.path.isfile(i):
-                rc_contents[i] = ["f", "nan"]
+                rc_contents[i] = ["f", "*"]
             elif os.path.isdir(i):
-                rc_contents[i] = ["d", "nan"]
+                rc_contents[i] = ["d", "*"]
             else:
                 print(i + " - несуществующий файл/директория. Пропускаем...")
        
@@ -133,7 +133,7 @@ class ConfigManager:
             os.system("rm -r " + self.config_dir + "/*") 
 
         for i in file_list.keys():
-            if file_list[i][1] == "nan": # без маски
+            if file_list[i][1] == "*": # без маски
                 os.system("cp -r --parents " + i + " " + self.config_dir)
             else:
                 os.system("find " + i + " -name \"" + file_list[i][1] + "\" -exec cp --parents {} " + self.config_dir + " \;")
