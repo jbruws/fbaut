@@ -1,6 +1,10 @@
 import sys
 import os
 import json
+from PyQt5.QtCore import *
+from PyQt5.QtGui import *
+from PyQt5.QtWidgets import *
+from functools import partial
 
 # TODO:
 # - КАК Я БУДУ ПОДАВАТЬ КРОНУ ДАННЫЕ ДЛЯ ВХОДА В ГИТХАБ????????????
@@ -219,7 +223,53 @@ class ConfigManager:
                 arg_list[i] = arg_list[i].replace("~", "/home/{}".format(USERNAME))
         return arg_list
 
+class ManagerGUI:
+    # МНЕ НАДО БУДЕТ ПЕРЕНОСИТЬ ВСЁ ИЗ КОНСОЛЬНОГО КЛАССА В ГУИШНЫЙ
+    # Qt ИНАЧЕ НЕ РАБОТАЕТ
+    global MAIN_PATH
+    global USERNAME
+
+    def __init__(self, manager):
+        self.manager = manager
+        
+        # Основное
+        self.app = QApplication(sys.argv)
+        self.grid = QGridLayout()
+        self.window = QDialog()
+        self.window.setLayout(self.grid)
+
+        # Выбор рабочей директории
+        self.rc_dir_in = QLineEdit(self.window)
+        self.grid.addWidget(self.rc_dir_in, 0, 0, 1, 1)
+        
+        # Кэширование
+        self.new_cached_file_in = QLineEdit(self.window)
+        self.grid.addWidget(self.new_cached_file_in, 1, 0, 1, 1)
+
+        # Привязки к методам ConfigManager'а
+        self.set_rc = partial(self.manager.set_rc, [self.rc_dir_in.text()])
+        self.cache = partial(self.manager.cache, [self.new_cached_file_in.text()])
+
+        # Кнопка выбора директории
+        self.rc_dir_submit = QPushButton(self.window)
+        self.rc_dir_submit.clicked.connect(self.set_rc)
+        self.rc_dir_submit.setText("Выбрать rc")
+        self.grid.addWidget(self.rc_dir_submit, 0, 1, 1, 1)
+        
+        # Кнопка подтверждения кэширования
+        self.new_cached_file_submit = QPushButton(self.window)
+        self.new_cached_file_submit.clicked.connect(self.cache)
+        self.new_cached_file_submit.setText("Кэшировать")
+        self.grid.addWidget(self.new_cached_file_submit, 1, 1, 1, 1)
+
+        self.window.show()
+
 if __name__ == "__main__":
+    manager = ConfigManager()
+    gui = ManagerGUI(manager)
+    sys.exit(gui.app.exec_())
+
+def console():
     args = sys.argv
     manager = ConfigManager()
     
