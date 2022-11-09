@@ -9,6 +9,7 @@ from functools import partial
 # TODO:
 # - КАК Я БУДУ ПОДАВАТЬ КРОНУ ДАННЫЕ ДЛЯ ВХОДА В ГИТХАБ????????????
 # - Сделать так, чтобы нормально работал пуш через ssh
+# - Избавиться от консольной версии вообще, ибо ни черта не работает
 
 MAIN_PATH = os.path.dirname(__file__) + "/" + os.path.basename(__file__)
 USERNAME = os.getlogin()
@@ -23,7 +24,7 @@ class ConfigManager:
         self.config_dir = None
 
     def help(self, *args):
-        print("""
+        return("""
             -- help                    - вывести список команд
             -- cache [список папок]    - добавить файлы/папки в .conbatrc
             -- uncache [список папок]  - убрать файлы/папки из .conbatrc
@@ -36,6 +37,7 @@ class ConfigManager:
         """)
 
     def set_rc(self, *args):
+        args = self.preprocess(args)
         self.rc_dir = args[0][0]
         if not os.path.isdir(self.rc_dir):
             print("ОШИБКА: не является директорией")
@@ -49,15 +51,17 @@ class ConfigManager:
             contents = json.load(open(self.rc_name, "r"))
         except FileNotFoundError:
             print("ОШИБКА: .conbatrc не найден.")
-            return 1
 
+        contents_string = ""
         for i in list(contents.keys()):
             if contents[i][0] == "f":
-                print("file | {:>20} |".format(i))
+                contents_string += "file | {:>20} |\n".format(i)
             else:
-                print("dir  | {:>20} | mask = {:>8}".format(i, contents[i][1]))
+                contents_string += "dir  | {:>20} | mask = {:>8}\n".format(i, contents[i][1])
+        return contents_string
 
     def cache(self, *args):
+        args = self.preprocess(args)
         filenames = args[0]
         # Если rc-файл пуст, присваиваем переменной пустой словарь
         if not os.path.isfile(self.rc_name):
@@ -83,6 +87,7 @@ class ConfigManager:
 
     # Знаю, что код дублируется из cache(), но мне пока что всё равно
     def cache_mask(self, *args):
+        args = self.preprocess(args)
         mask = args[0][-1]
         filenames = args[0][0:-1]
         
@@ -108,6 +113,7 @@ class ConfigManager:
         f.close()
 
     def uncache(self, *args):
+        args = self.preprocess(args)
         filenames = args[0]
         if not os.path.isfile(self.rc_name):
             print("ОШИБКА: файла .conbatrc не существует.")
@@ -124,6 +130,7 @@ class ConfigManager:
         f.close()
 
     def backup(self, *args):
+        args = self.preprocess(args)
         custom_commit_msg = True
         if self.rc_dir == None: # если вызывается cron'ом
             set_rc(args[0][0])
@@ -162,6 +169,7 @@ class ConfigManager:
             os.chdir(self.rc_dir)
 
     def git_init(self, *args):
+        args = self.preprocess(args)
         origin_link = args[0][0]
         if os.path.isdir(self.config_dir + "/.git"):
             print("ВНИМАНИЕ: репозиторий Git уже существует в рабочей директории.")
@@ -177,6 +185,7 @@ class ConfigManager:
 
     # Всё ещё не работает, но концепт понятен. Допилю в Qt-версии
     def schedule(self, *args):
+        args = self.preprocess(args)
         job_type = args[0][0]
         cronjob_types = {"d": "@daily", "w": "@weekly", "m": "@monthly"}
         cron_status = os.popen("systemctl --no-pager status cronie").read()
@@ -198,16 +207,16 @@ class ConfigManager:
         f.close()
 
         conbat_cronjob = cronjob_types[job_type] + " " + MAIN_PATH + " backup " + self.rc_dir + " # conbat job\n"
-        conbat_cronjob_id = 0
+        conbat_cronjob_line_id = 0
 
         # удаляем старую запись и добавляем новую на её место
         for i in range(len(crontab_contents)-1):
             if "# conbat job" in crontab_contents[i]:
                 crontab_contents.pop(i)
-                conbat_cronjob_id = i
+                conbat_cronjob_line_id = i
                 break
 
-        crontab_contents.insert(conbat_cronjob_id, conbat_cronjob)
+        crontab_contents.insert(conbat_cronjob_line_id, conbat_cronjob)
 
         f = open(crontab_path, "w")
         for i in crontab_contents:
@@ -218,14 +227,14 @@ class ConfigManager:
         sys.exit()
 
     def preprocess(self, arg_list):
+        print(arg_list)
+        # заменяем тильду в аргументах на домашнюю директорию пользователя
         for i in range(len(arg_list)):
             if "~" in arg_list[i]:
                 arg_list[i] = arg_list[i].replace("~", "/home/{}".format(USERNAME))
         return arg_list
 
 class ManagerGUI:
-    # МНЕ НАДО БУДЕТ ПЕРЕНОСИТЬ ВСЁ ИЗ КОНСОЛЬНОГО КЛАССА В ГУИШНЫЙ
-    # Qt ИНАЧЕ НЕ РАБОТАЕТ
     global MAIN_PATH
     global USERNAME
 
@@ -237,52 +246,92 @@ class ManagerGUI:
         self.grid = QGridLayout()
         self.window = QDialog()
         self.window.setLayout(self.grid)
+        self.window.setGeometry(0, 0, 500, 250)
 
         # Выбор рабочей директории
         self.rc_dir_in = QLineEdit(self.window)
-        self.grid.addWidget(self.rc_dir_in, 0, 0, 1, 1)
+        self.grid.addWidget(self.rc_dir_in, 0, 0)
         
         # Кэширование
         self.new_cached_file_in = QLineEdit(self.window)
-        self.grid.addWidget(self.new_cached_file_in, 1, 0, 1, 1)
+        self.grid.addWidget(self.new_cached_file_in, 1, 0)
+        
+        # Сам вывод show_rc
+        self.rc_contents = QLabel(self.window)
+        self.rc_contents.setText("")
+        self.grid.addWidget(self.rc_contents, 0, 3)
 
         # Привязки к методам ConfigManager'а
         self.set_rc = partial(self.manager.set_rc, [self.rc_dir_in.text()])
         self.cache = partial(self.manager.cache, [self.new_cached_file_in.text()])
+        self.backup = self.manager.backup
+        self.preprocess = self.manager.preprocess
+        #self.show_rc = partial(self.rc_contents.setText, self.manager.show_rc())
+
+        # Кнопка вывода rc
+        self.output_rc = QPushButton(self.window)
+        self.output_rc.clicked.connect(self.show_rc)
+        self.output_rc.setText("Показать rc")
+        self.grid.addWidget(self.output_rc, 0, 2)
 
         # Кнопка выбора директории
         self.rc_dir_submit = QPushButton(self.window)
         self.rc_dir_submit.clicked.connect(self.set_rc)
         self.rc_dir_submit.setText("Выбрать rc")
-        self.grid.addWidget(self.rc_dir_submit, 0, 1, 1, 1)
+        self.grid.addWidget(self.rc_dir_submit, 0, 1)
         
         # Кнопка подтверждения кэширования
         self.new_cached_file_submit = QPushButton(self.window)
         self.new_cached_file_submit.clicked.connect(self.cache)
         self.new_cached_file_submit.setText("Кэшировать")
-        self.grid.addWidget(self.new_cached_file_submit, 1, 1, 1, 1)
+        self.grid.addWidget(self.new_cached_file_submit, 1, 1)
+
+        # Кнопка для бэкапа
+        self.make_backup = QPushButton(self.window)
+        self.make_backup.clicked.connect(self.backup)
+        self.make_backup.setText("БЭКАП!")
+        self.grid.addWidget(self.make_backup, 1, 2)
 
         self.window.show()
+    
+    def show_rc(self):
+        try:
+            contents = json.load(open(self.manager.rc_name, "r"))
+        except FileNotFoundError:
+            print("ОШИБКА: .conbatrc не найден.")
 
-if __name__ == "__main__":
-    manager = ConfigManager()
-    gui = ManagerGUI(manager)
-    sys.exit(gui.app.exec_())
+        contents_string = ""
+        for i in list(contents.keys()):
+            if contents[i][0] == "f":
+                contents_string += "file | {:>20} |\n".format(i)
+            else:
+                contents_string += "dir  | {:>20} | mask = {:>8}\n".format(i, contents[i][1])
+        self.rc_contents.setText(contents_string)
 
-def console():
-    args = sys.argv
+def console(args):
     manager = ConfigManager()
     
-    if len(args) > 1: # Если указана функция для запуска...
-        eval("manager.{}({})".format(args[1], str(args[2:]))) # ...запускаем только её
-        quit()   
+    if "--run" in args: # Если указана функция для запуска...
+        func_index = args.index("--run") + 1
+        eval("manager.{}({})".format(args[func_index], str(args[func_index + 1:]))) # ...запускаем только её
 
-    while True:
-        command = input("> ").split(" ")
-        command = manager.preprocess(command)
-        if command[0] not in ["set_rc", "help", "quit"] and manager.rc_dir == None:
-            print("ВНИМАНИЕ: не установлена директория с .conbatrc; запустите set_rc [путь к директории]")
-        elif command[0] not in globals()['ConfigManager'].__dict__:
-            print("ВНИМАНИЕ: неизвестная команда")
-        else:
-            eval("manager.{}({})".format(command[0], str(command[1:])))
+    else:
+        while True:
+            command = input("> ").split(" ")
+            if command[0] not in ["set_rc", "help", "quit"] and manager.rc_dir == None:
+                print("ВНИМАНИЕ: не установлена директория с .conbatrc; запустите set_rc [путь к директории]")
+            elif command[0] not in globals()['ConfigManager'].__dict__:
+                print("ВНИМАНИЕ: неизвестная команда")
+            else:
+                run_result = eval("manager.{}({})".format(command[0], str(command[1:])))
+                if run_result != None:
+                    print(run_result)
+
+if __name__ == "__main__":
+    if "--no-gui" in sys.argv:
+        console(sys.argv)
+    else:
+        manager = ConfigManager()
+        gui = ManagerGUI(manager)
+        sys.exit(gui.app.exec_())
+
