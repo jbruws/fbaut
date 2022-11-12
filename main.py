@@ -28,7 +28,7 @@ class ConfigManager:
         """)
 
     def set_rc(self, *args):
-        self.rc_dir = args[0][0]
+        self.rc_dir = args[0][0] 
         if not os.path.isdir(self.rc_dir):
             print("ОШИБКА: не является директорией")
             return 1
@@ -117,8 +117,8 @@ class ConfigManager:
 
     def backup(self, *args):
         custom_commit_msg = True
-        if self.rc_dir == None: # если вызывается cron'ом
-            set_rc(args[0][0])
+        if self.rc_dir == None: # если вызывается через "--run"
+            self.set_rc(args[0])
             custom_commit_msg = False
 
         file_list = json.load(open(self.rc_name, "r"))
@@ -219,9 +219,10 @@ if __name__ == "__main__":
     args = sys.argv
     manager = ConfigManager()
     
-    if len(args) > 1: # Если указана функция для запуска...
-        eval("manager.{}({})".format(args[1], str(args[2:]))) # ...запускаем только её
-        quit()   
+    if "--run" in args: # Если указана функция для запуска...
+        func_index = args.index("--run") + 1
+        eval("manager.{}({})".format(args[func_index], str(args[(func_index+1):]))) # ...запускаем только её
+        quit()
 
     while True:
         command = input("> ").split(" ")
