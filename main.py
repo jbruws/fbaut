@@ -2,10 +2,6 @@ import sys
 import os
 import json
 
-# TODO:
-# - КАК Я БУДУ ПОДАВАТЬ КРОНУ ДАННЫЕ ДЛЯ ВХОДА В ГИТХАБ????????????
-# - Сделать так, чтобы нормально работал пуш через ssh
-
 MAIN_PATH = os.path.dirname(__file__) + "/" + os.path.basename(__file__)
 USERNAME = os.getlogin()
 
@@ -171,7 +167,7 @@ class ConfigManager:
         os.system("git remote add origin " + origin_link)
         os.chdir(self.rc_dir)
 
-    # Всё ещё не работает, но концепт понятен. Допилю в Qt-версии
+    # Всё ещё не работает, но концепт понятен. 
     def schedule(self, *args):
         job_type = args[0][0]
         cronjob_types = {"d": "@daily", "w": "@weekly", "m": "@monthly"}
