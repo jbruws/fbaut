@@ -57,15 +57,6 @@ class ManagerGUI:
         self.backup_submit.clicked.connect(self.backup)
         self.backup_submit.setText("БЭКАП!")
         self.grid_rc.addWidget(self.backup_submit, 1, 2)
-
-        # Создание git-репозитория
-        self.git_init_in = QLineEdit(self.window)
-        self.grid_git.addWidget(self.git_init_in, 2, 0)
-
-        self.git_init_submit = QPushButton(self.window)
-        self.git_init_submit.clicked.connect(self.git_init)
-        self.git_init_submit.setText("Создать git")
-        self.grid_git.addWidget(self.git_init_submit, 2, 1)
         
         # Кэширование
         self.cache_in = QLineEdit(self.window)
@@ -91,14 +82,41 @@ class ManagerGUI:
         self.show_rc_submit.setText("Показать/скрыть rc")
         self.grid_rc.addWidget(self.show_rc_submit, 0, 2)
 
-        # Вывод прочих команд
+        # Вывод команд (вне вкладок)
         self.commands_out = QLabel(self.window)
-        self.commands_out.setText(" - ")
-        self.grid_rc.addWidget(self.commands_out, 3, 0)
+        self.commands_out.setText("-----")
+        self.commands_out.setAlignment(Qt.AlignCenter)
+        self.grid_main.addWidget(self.commands_out, 1, 0)
 
         self.grid_main.addWidget(self.tabs, 0, 0)
         self.window.show()
-    
+
+        # Создание git-репозитория
+        self.git_init_in = QLineEdit(self.window)
+        self.grid_git.addWidget(self.git_init_in, 0, 0, 1, 2)
+
+        self.git_init_submit = QPushButton(self.window)
+        self.git_init_submit.clicked.connect(self.git_init)
+        self.git_init_submit.setText("Создать git")
+        self.grid_git.addWidget(self.git_init_submit, 0, 2)
+
+        # cron
+        self.schedule_choice_text = QLabel()
+        self.schedule_choice_text.setText("Проводить бэкап ")
+        self.schedule_choice_text.setAlignment(Qt.AlignRight)
+        self.grid_git.addWidget(self.schedule_choice_text, 1, 0)
+
+        self.schedule_choices = QComboBox(self.window)
+        self.schedule_choices.addItem("ежедневно")
+        self.schedule_choices.addItem("еженедельно")
+        self.schedule_choices.addItem("ежемесячно")
+        self.grid_git.addWidget(self.schedule_choices, 1, 1)
+
+        self.schedule_submit = QPushButton(self.window)
+        self.schedule_submit.clicked.connect(self.schedule)
+        self.schedule_submit.setText("Подтвердить")
+        self.grid_git.addWidget(self.schedule_submit, 1, 2)
+        
     def preprocess(self, args):
         # заменяем тильду в аргументе на домашнюю директорию пользователя
         if type(args) == str:
@@ -275,9 +293,12 @@ class ManagerGUI:
 
     # Всё ещё не работает, но концепт понятен. Допилю в Qt-версии
     def schedule(self):
-        args = self.preprocess(args)
-        job_type = args[0][0]
-        cronjob_types = {"d": "@daily", "w": "@weekly", "m": "@monthly"}
+        if self.rc_is_not_set():
+            self.commands_out.setText("ОШИБКА: rc-файл не задан")
+            return 1
+        
+        job_type = self.schedule_choices.currentText()
+        cronjob_types = {"ежедневно": "@daily", "еженедельно": "@weekly", "ежемесячно": "@monthly"}
         cron_status = os.popen("systemctl --no-pager status cronie").read()
 
         # Включаем cron при необходимости
