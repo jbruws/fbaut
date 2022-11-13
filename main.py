@@ -20,9 +20,9 @@ class ManagerGUI:
         
         ## Основное
         self.app = QApplication(sys.argv)
-        self.grid = QGridLayout()
         self.window = QDialog()
-        self.window.setLayout(self.grid)
+        self.grid_main = QGridLayout()
+        self.window.setLayout(self.grid_main)
         self.window.setGeometry(0, 0, 500, 250)
 
         ## Данные rc
@@ -30,40 +30,73 @@ class ManagerGUI:
         self.rc_name = None
         self.config_dir = None
 
+        # Вкладки
+        self.tabs = QTabWidget(self.window)
+        
+        self.tab_rc_and_cache = QWidget()
+        self.tab_git = QWidget()
+        self.grid_rc = QGridLayout()
+        self.grid_git = QGridLayout()
+        self.tab_rc_and_cache.setLayout(self.grid_rc)
+        self.tab_git.setLayout(self.grid_git)
+        
+        self.tabs.addTab(self.tab_rc_and_cache, "rc")
+        self.tabs.addTab(self.tab_git, "git+cron")
+
         # Выбор рабочей директории
         self.set_rc_in = QLineEdit(self.window)
-        self.grid.addWidget(self.set_rc_in, 0, 0)
+        self.grid_rc.addWidget(self.set_rc_in, 0, 0)
 
         self.set_rc_submit = QPushButton(self.window)
         self.set_rc_submit.clicked.connect(self.set_rc)
         self.set_rc_submit.setText("Выбрать rc")
-        self.grid.addWidget(self.set_rc_submit, 0, 1)
+        self.grid_rc.addWidget(self.set_rc_submit, 0, 1)
         
         # Кнопка для бэкапа
         self.backup_submit = QPushButton(self.window)
         self.backup_submit.clicked.connect(self.backup)
         self.backup_submit.setText("БЭКАП!")
-        self.grid.addWidget(self.backup_submit, 1, 2)
+        self.grid_rc.addWidget(self.backup_submit, 1, 2)
+
+        # Создание git-репозитория
+        self.git_init_in = QLineEdit(self.window)
+        self.grid_git.addWidget(self.git_init_in, 2, 0)
+
+        self.git_init_submit = QPushButton(self.window)
+        self.git_init_submit.clicked.connect(self.git_init)
+        self.git_init_submit.setText("Создать git")
+        self.grid_git.addWidget(self.git_init_submit, 2, 1)
         
         # Кэширование
         self.cache_in = QLineEdit(self.window)
-        self.grid.addWidget(self.cache_in, 1, 0)
+        self.grid_rc.addWidget(self.cache_in, 1, 0, 2, 1)
 
         self.cache_submit = QPushButton(self.window)
         self.cache_submit.clicked.connect(self.cache)
         self.cache_submit.setText("Кэшировать")
-        self.grid.addWidget(self.cache_submit, 1, 1)
+        self.grid_rc.addWidget(self.cache_submit, 1, 1)
+
+        self.cache_mask_submit = QPushButton(self.window)
+        self.cache_mask_submit.clicked.connect(self.cache_mask)
+        self.cache_mask_submit.setText("Кэшировать по маске")
+        self.grid_rc.addWidget(self.cache_mask_submit, 2, 1)
 
         # Вывод show_rc
         self.show_rc_out = QLabel(self.window)
-        self.show_rc_out.setText("----- .conbatrc -----")
-        self.grid.addWidget(self.show_rc_out, 0, 3)
+        self.show_rc_out.setText("--------- .conbatrc ---------")
+        self.grid_rc.addWidget(self.show_rc_out, 3, 1, 1, 2)
 
         self.show_rc_submit = QPushButton(self.window)
         self.show_rc_submit.clicked.connect(self.show_rc)
-        self.show_rc_submit.setText("Показать rc")
-        self.grid.addWidget(self.show_rc_submit, 0, 2)
+        self.show_rc_submit.setText("Показать/скрыть rc")
+        self.grid_rc.addWidget(self.show_rc_submit, 0, 2)
 
+        # Вывод прочих команд
+        self.commands_out = QLabel(self.window)
+        self.commands_out.setText(" - ")
+        self.grid_rc.addWidget(self.commands_out, 3, 0)
+
+        self.grid_main.addWidget(self.tabs, 0, 0)
         self.window.show()
     
     def preprocess(self, args):
@@ -85,7 +118,8 @@ class ManagerGUI:
     
     def show_rc(self):
         if self.rc_is_not_set():
-            return("ОШИБКА: rc-файл не задан")
+            self.commands_out.setText("ОШИБКА: rc-файл не задан")
+            return 1
 
         try:
             contents = json.load(open(self.rc_name, "r"))
@@ -115,7 +149,8 @@ class ManagerGUI:
 
     def cache(self):
         if self.rc_is_not_set():
-            return("ОШИБКА: rc-файл не задан")
+            self.commands_out.setText("ОШИБКА: rc-файл не задан")
+            return 1
         
         filenames = self.preprocess(self.cache_in.text().split())
 
@@ -144,7 +179,8 @@ class ManagerGUI:
     # Знаю, что код дублируется из cache(), но мне пока что всё равно
     def cache_mask(self):
         if self.rc_is_not_set():
-            return("ОШИБКА: rc-файл не задан")
+            self.commands_out.setText("ОШИБКА: rc-файл не задан")
+            return 1
         
         args = self.preprocess(self.cache_in.text().split())
         mask = args[0]
@@ -224,10 +260,9 @@ class ManagerGUI:
             os.chdir(self.rc_dir)
 
     def git_init(self):
-        args = self.preprocess(args)
-        origin_link = args[0][0]
+        origin_link = self.preprocess(self.git_init_in)
         if os.path.isdir(self.config_dir + "/.git"):
-            print("ВНИМАНИЕ: репозиторий Git уже существует в рабочей директории.")
+            self.commands_out.setText("ОШИБКА: репозиторий Git уже существует в рабочей директории.")
             return 1
 
         if not os.path.isdir(self.config_dir):
