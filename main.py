@@ -125,14 +125,13 @@ class ManagerGUI:
     def preprocess(self, args):
         # заменяем тильду в аргументе на домашнюю директорию пользователя
         if type(args) == str:
-            return args.replace("~", "/home/{}".format(USERNAME))
+            args = args.replace("~", "/home/{}".format(USERNAME))
         elif type(args) == list:
-            for i in args:
-                i.replace("~", "/home/{}".format(USERNAME))
-            return args
+            for (i, s) in enumerate(args):
+                args[i] = s.replace("~", "/home/{}".format(USERNAME))
         else:
             print("ОШИБКА: preprocess() принимает строки или списки строк")
-            return ""
+        return args
 
     def rc_is_not_set(self): # ёмкое название
         if None in [self.rc_name, self.rc_dir, self.config_dir]:
