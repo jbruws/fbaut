@@ -34,14 +34,18 @@ class ManagerGUI:
         self.tabs = QTabWidget(self.window)
         self.tab_rc = QWidget()
         self.tab_git = QWidget()
+        self.tab_git_creds = QWidget()
         
         self.grid_rc = QGridLayout()
         self.grid_git = QGridLayout()
+        self.grid_git_creds = QGridLayout()
         self.tab_rc.setLayout(self.grid_rc)
         self.tab_git.setLayout(self.grid_git)
+        self.tab_git_creds.setLayout(self.grid_git_creds)
         
         self.tabs.addTab(self.tab_rc, "rc")
         self.tabs.addTab(self.tab_git, "git+cron")
+        self.tabs.addTab(self.tab_git_creds, "git user info")
 
         ## ВКЛАДКА 1
 
@@ -111,6 +115,22 @@ class ManagerGUI:
         self.schedule_submit.clicked.connect(self.schedule)
         self.schedule_submit.setText("Подтвердить")
         self.grid_git.addWidget(self.schedule_submit, 1, 2)
+
+        ## ВКЛАДКА 3
+
+        # имя пользователя
+        self.git_username_label = QLabel(self.window)
+        self.git_username_label.setText("Имя пользователя GitHub")
+        self.grid_git_creds.addWidget(self.git_username_label, 0, 2)
+        self.git_creds_username = QLineEdit(self.window)
+        self.grid_git_creds.addWidget(self.git_creds_username, 0, 0, 1, 2)
+
+        # токен
+        self.git_token_label = QLabel(self.window)
+        self.git_token_label.setText("Токен GitHub")
+        self.grid_git_creds.addWidget(self.git_token_label, 1, 2)
+        self.git_creds_token = QLineEdit(self.window)
+        self.grid_git_creds.addWidget(self.git_creds_token, 1, 0, 1, 2)
 
         # Вывод команд (вне вкладок)
         self.commands_out = QLabel(self.window)
@@ -272,6 +292,10 @@ class ManagerGUI:
 
         # если есть git-репозиторий
         if os.path.isdir(self.config_dir + "/.git"):
+            f = open(".reponame", "r")
+            repo_name = f.readlines()[0]
+            f.close()
+
             os.chdir(self.config_dir)
             os.system('git add -A')
 
@@ -284,15 +308,24 @@ class ManagerGUI:
             except ValueError:
                 commit_count = 0
             commit_msg = "Копия #{}".format(commit_count + 1)
+
+            gh_username = self.git_creds_username.text()
+            gh_token = self.git_creds_token.text()
                 
             os.system('git commit -m "{}"'.format(commit_msg))
-            os.system('git push -u origin master')
+            os.system('git push https://{}:{}@github.com/{}/{}'.format(gh_username, gh_token, gh_username, repo_name))
             os.chdir(self.rc_dir)
         
         self.commands_out.setText("-----")
 
     def git_init(self):
-        origin_link = self.preprocess(self.git_init_in)
+        origin_link = self.preprocess(self.git_init_in.text())
+        repo_name = origin_link.split("/")[-1]
+
+        f = open(".reponame", "w")
+        f.write(repo_name)
+        f.close()
+
         if os.path.isdir(self.config_dir + "/.git"):
             self.commands_out.setText("ОШИБКА: репозиторий Git уже существует в рабочей директории.")
             return 1
