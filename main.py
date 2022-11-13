@@ -30,18 +30,20 @@ class ManagerGUI:
         self.rc_name = None
         self.config_dir = None
 
-        # Вкладки
+        # Определяем вкладки
         self.tabs = QTabWidget(self.window)
-        
-        self.tab_rc_and_cache = QWidget()
+        self.tab_rc = QWidget()
         self.tab_git = QWidget()
+        
         self.grid_rc = QGridLayout()
         self.grid_git = QGridLayout()
-        self.tab_rc_and_cache.setLayout(self.grid_rc)
+        self.tab_rc.setLayout(self.grid_rc)
         self.tab_git.setLayout(self.grid_git)
         
-        self.tabs.addTab(self.tab_rc_and_cache, "rc")
+        self.tabs.addTab(self.tab_rc, "rc")
         self.tabs.addTab(self.tab_git, "git+cron")
+
+        ## ВКЛАДКА 1
 
         # Выбор рабочей директории
         self.set_rc_in = QLineEdit(self.window)
@@ -82,14 +84,7 @@ class ManagerGUI:
         self.show_rc_submit.setText("Показать/скрыть rc")
         self.grid_rc.addWidget(self.show_rc_submit, 0, 2)
 
-        # Вывод команд (вне вкладок)
-        self.commands_out = QLabel(self.window)
-        self.commands_out.setText("-----")
-        self.commands_out.setAlignment(Qt.AlignCenter)
-        self.grid_main.addWidget(self.commands_out, 1, 0)
-
-        self.grid_main.addWidget(self.tabs, 0, 0)
-        self.window.show()
+        ## ВКЛАДКА 2
 
         # Создание git-репозитория
         self.git_init_in = QLineEdit(self.window)
@@ -116,6 +111,16 @@ class ManagerGUI:
         self.schedule_submit.clicked.connect(self.schedule)
         self.schedule_submit.setText("Подтвердить")
         self.grid_git.addWidget(self.schedule_submit, 1, 2)
+
+        # Вывод команд (вне вкладок)
+        self.commands_out = QLabel(self.window)
+        self.commands_out.setText("-----")
+        self.commands_out.setAlignment(Qt.AlignCenter)
+        self.grid_main.addWidget(self.commands_out, 1, 0)
+
+        # Показ вкладок и окна
+        self.grid_main.addWidget(self.tabs, 0, 0)
+        self.window.show()
         
     def preprocess(self, args):
         # заменяем тильду в аргументе на домашнюю директорию пользователя
@@ -154,16 +159,20 @@ class ManagerGUI:
             self.show_rc_out.setText("---------- .conbatrc ----------")
         else:
             self.show_rc_out.setText(contents_string)
+        
+        self.commands_out.setText("-----")
 
     def set_rc(self):
         arg = self.preprocess(self.set_rc_in.text())
         self.rc_dir = arg
         if not os.path.isdir(self.rc_dir):
-            print("ОШИБКА: не является директорией")
+            self.commands_out.setText("ОШИБКА: не является директорией")
             return 1
         os.chdir(self.rc_dir)
         self.config_dir = self.rc_dir + "/configs"
         self.rc_name = ".conbatrc"
+        
+        self.commands_out.setText("-----")
 
     def cache(self):
         if self.rc_is_not_set():
@@ -193,6 +202,8 @@ class ManagerGUI:
         f = open(self.rc_name, "w")
         f.write(json.dumps(rc_contents, indent=4))
         f.close()
+        
+        self.commands_out.setText("-----")
 
     # Знаю, что код дублируется из cache(), но мне пока что всё равно
     def cache_mask(self):
@@ -224,6 +235,8 @@ class ManagerGUI:
         f = open(self.rc_name, "w")
         f.write(json.dumps(rc_contents, indent=4))
         f.close()
+
+        self.commands_out.setText("-----")
 
     def uncache(self):
         args = self.preprocess(args)
@@ -276,6 +289,8 @@ class ManagerGUI:
             os.system('git commit -m "{}"'.format(commit_msg))
             os.system('git push -u origin master')
             os.chdir(self.rc_dir)
+        
+        self.commands_out.setText("-----")
 
     def git_init(self):
         origin_link = self.preprocess(self.git_init_in)
@@ -290,6 +305,8 @@ class ManagerGUI:
         os.system("git init")
         os.system("git remote add origin " + origin_link)
         os.chdir(self.rc_dir)
+        
+        self.commands_out.setText("-----")
 
     # Всё ещё не работает, но концепт понятен. Допилю в Qt-версии
     def schedule(self):
@@ -333,6 +350,8 @@ class ManagerGUI:
         for i in crontab_contents:
             f.write(i)
         f.close()
+        
+        self.commands_out.setText("-----")
 
 if __name__ == "__main__":
     gui = ManagerGUI()
