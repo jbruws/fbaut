@@ -30,6 +30,9 @@ class ManagerGUI:
         self.rc_name = None
         self.config_dir = None
 
+        ## Выбираемая директория
+        self.to_be_cached = None
+
         # Определяем вкладки
         self.tabs = QTabWidget(self.window)
         self.tab_rc = QWidget()
@@ -50,13 +53,10 @@ class ManagerGUI:
         ## ВКЛАДКА 1
 
         # Выбор рабочей директории
-        self.set_rc_in = QLineEdit(self.window)
-        self.grid_rc.addWidget(self.set_rc_in, 0, 0)
-
         self.set_rc_submit = QPushButton(self.window)
-        self.set_rc_submit.clicked.connect(self.set_rc)
+        self.set_rc_submit.clicked.connect(self.set_rc_dialog)
         self.set_rc_submit.setText("Выбрать rc")
-        self.grid_rc.addWidget(self.set_rc_submit, 0, 1)
+        self.grid_rc.addWidget(self.set_rc_submit, 0, 0, 1, 2)
         
         # Кнопка для бэкапа
         self.backup_submit = QPushButton(self.window)
@@ -65,13 +65,18 @@ class ManagerGUI:
         self.grid_rc.addWidget(self.backup_submit, 1, 2)
         
         # Кэширование
-        self.cache_in = QLineEdit(self.window)
-        self.grid_rc.addWidget(self.cache_in, 1, 0, 2, 1)
-
         self.cache_submit = QPushButton(self.window)
-        self.cache_submit.clicked.connect(self.cache)
-        self.cache_submit.setText("Кэшировать")
+        self.cache_submit.clicked.connect(self.cache_file_dialog)
+        self.cache_submit.setText("Кэшировать файл")
+        self.grid_rc.addWidget(self.cache_submit, 1, 0)
+        
+        self.cache_submit = QPushButton(self.window)
+        self.cache_submit.clicked.connect(self.cache_dir_dialog)
+        self.cache_submit.setText("Кэшировать папку")
         self.grid_rc.addWidget(self.cache_submit, 1, 1)
+
+        self.cache_mask_in = QLineEdit(self.window)
+        self.grid_rc.addWidget(self.cache_mask_in, 2, 0)
 
         self.cache_mask_submit = QPushButton(self.window)
         self.cache_mask_submit.clicked.connect(self.cache_mask)
@@ -81,7 +86,7 @@ class ManagerGUI:
         # Вывод show_rc
         self.show_rc_out = QLabel(self.window)
         self.show_rc_out.setText("--------- .conbatrc ---------")
-        self.grid_rc.addWidget(self.show_rc_out, 3, 1, 1, 2)
+        self.grid_rc.addWidget(self.show_rc_out, 3, 1, 1, 3)
 
         self.show_rc_submit = QPushButton(self.window)
         self.show_rc_submit.clicked.connect(self.show_rc)
@@ -181,9 +186,14 @@ class ManagerGUI:
         
         self.commands_out.setText("-----")
 
-    def set_rc(self):
-        arg = self.preprocess(self.set_rc_in.text())
-        self.rc_dir = arg
+    def set_rc_dialog(self):
+        dialog = QFileDialog()
+        dirname = dialog.getExistingDirectory(
+            self.window,
+            "Открыть директорию",
+            "/home/{}".format(USERNAME),
+        )
+        self.rc_dir = dirname
         if not os.path.isdir(self.rc_dir):
             self.commands_out.setText("ОШИБКА: не является директорией")
             return 1
@@ -193,12 +203,35 @@ class ManagerGUI:
         
         self.commands_out.setText("-----")
 
-    def cache(self):
+    def cache_file_dialog(self):
         if self.rc_is_not_set():
             self.commands_out.setText("ОШИБКА: rc-файл не задан")
             return 1
-        
-        filenames = self.preprocess(self.cache_in.text().split())
+        dialog = QFileDialog()
+        filename = dialog.getOpenFileName(
+            self.window,
+            "Открыть файл",
+            "/home/{}".format(USERNAME),
+        )
+        self.to_be_cached = filename[0]
+        #print(filename)
+        self.cache()
+
+    def cache_dir_dialog(self):
+        if self.rc_is_not_set():
+            self.commands_out.setText("ОШИБКА: rc-файл не задан")
+            return 1
+        dialog = QFileDialog()
+        dirname = dialog.getExistingDirectory(
+            self.window,
+            "Открыть директорию",
+            "/home/{}".format(USERNAME),
+        )
+        self.to_be_cached = dirname[0]
+        self.cache()
+
+    def cache(self):
+        filename = self.preprocess(self.to_be_cached)
 
         # Если rc-файл пуст, присваиваем переменной пустой словарь
         if not os.path.isfile(self.rc_name):
@@ -210,13 +243,12 @@ class ManagerGUI:
 
         # Записываем, учитывая тип  (файл/директория)
         # "*" значит отсутствие маски
-        for i in filenames:
-            if os.path.isfile(i):
-                rc_contents[i] = ["f", "*"]
-            elif os.path.isdir(i):
-                rc_contents[i] = ["d", "*"]
-            else:
-                print(i + " - несуществующий файл/директория. Пропускаем...")
+        if os.path.isfile(filename):
+            rc_contents[filename] = ["f", "*"]
+        elif os.path.isdir(filename):
+            rc_contents[filename] = ["d", "*"]
+        else:
+            print(i + " - несуществующий файл/директория. Пропускаем...")
        
         f = open(self.rc_name, "w")
         f.write(json.dumps(rc_contents, indent=4))
