@@ -10,10 +10,12 @@ from PyQt5.QtWidgets import *
 # - Сделать так, чтобы нормально работал пуш через ssh
 
 MAIN_PATH = os.path.dirname(__file__) + "/" + os.path.basename(__file__)
-USERNAME = os.getlogin()
+HOME_DIR = os.environ["HOME"]
+USERNAME = os.environ["USER"]
 
 class ManagerGUI:
     global MAIN_PATH
+    global HOME_DIR
     global USERNAME
 
     def __init__(self):
@@ -150,10 +152,10 @@ class ManagerGUI:
     def preprocess(self, args):
         # заменяем тильду в аргументе на домашнюю директорию пользователя
         if type(args) == str:
-            args = args.replace("~", "/home/{}".format(USERNAME))
+            args = args.replace("~", f"{HOME_DIR}")
         elif type(args) == list:
             for (i, s) in enumerate(args):
-                args[i] = s.replace("~", "/home/{}".format(USERNAME))
+                args[i] = s.replace("~", f"{HOME_DIR}")
         else:
             print("ОШИБКА: preprocess() принимает строки или списки строк")
         return args
@@ -191,7 +193,7 @@ class ManagerGUI:
         dirname = dialog.getExistingDirectory(
             self.window,
             "Открыть директорию",
-            "/home/{}".format(USERNAME),
+            f"{HOME_DIR}",
         )
         self.rc_dir = dirname
         if not os.path.isdir(self.rc_dir):
@@ -211,7 +213,7 @@ class ManagerGUI:
         filename = dialog.getOpenFileName(
             self.window,
             "Открыть файл",
-            "/home/{}".format(USERNAME),
+            f"{HOME_DIR}",
         )
         self.to_be_cached = filename[0]
         #print(filename)
@@ -225,7 +227,7 @@ class ManagerGUI:
         dirname = dialog.getExistingDirectory(
             self.window,
             "Открыть директорию",
-            "/home/{}".format(USERNAME),
+            f"{HOME_DIR}",
         )
         self.to_be_cached = dirname[0]
         self.cache()
