@@ -5,9 +5,8 @@ from PyQt5.QtCore import *
 from PyQt5.QtGui import *
 from PyQt5.QtWidgets import *
 
-# TODO:
-# - КАК Я БУДУ ПОДАВАТЬ КРОНУ ДАННЫЕ ДЛЯ ВХОДА В ГИТХАБ????????????
-# - Сделать так, чтобы нормально работал пуш через ssh
+# TODO
+# - избавиться от дупликатного кода (его *очень* много) - можно через декораторы
 
 MAIN_PATH = os.path.dirname(__file__) + "/" + os.path.basename(__file__)
 HOME_DIR = os.environ["HOME"]
@@ -188,17 +187,25 @@ class ManagerGUI:
         
         self.commands_out.setText("-----")
 
-    def set_rc_dialog(self):
+    def generic_dialog(self, target_type):
         dialog = QFileDialog()
-        dirname = dialog.getExistingDirectory(
-            self.window,
-            "Открыть директорию",
-            f"{HOME_DIR}",
-        )
-        self.rc_dir = dirname
-        if not os.path.isdir(self.rc_dir):
-            self.commands_out.setText("ОШИБКА: не является директорией")
-            return 1
+        if target_type == "dir":
+            name = dialog.getExistingDirectory(
+                self.window,
+                "Открыть директорию",
+                f"{HOME_DIR}",
+            )
+        else: # подразумевается, что в остальных случаях файл
+            name = dialog.getOpenFileName(
+                self.window,
+                "Открыть файл",
+                f"{HOME_DIR}",
+            )
+        return name
+
+    def set_rc_dialog(self):
+        self.rc_dir = self.generic_dialog("dir")
+        
         os.chdir(self.rc_dir)
         self.config_dir = self.rc_dir + "/configs"
         self.rc_name = ".conbatrc"
@@ -209,13 +216,7 @@ class ManagerGUI:
         if self.rc_is_not_set():
             self.commands_out.setText("ОШИБКА: rc-файл не задан")
             return 1
-        dialog = QFileDialog()
-        filename = dialog.getOpenFileName(
-            self.window,
-            "Открыть файл",
-            f"{HOME_DIR}",
-        )
-        self.to_be_cached = filename[0]
+        self.to_be_cached = self.generic_dialog("file")
         #print(filename)
         self.cache()
 
@@ -223,15 +224,9 @@ class ManagerGUI:
         if self.rc_is_not_set():
             self.commands_out.setText("ОШИБКА: rc-файл не задан")
             return 1
-        dialog = QFileDialog()
-        dirname = dialog.getExistingDirectory(
-            self.window,
-            "Открыть директорию",
-            f"{HOME_DIR}",
-        )
-        self.to_be_cached = dirname[0]
+        self.to_be_cached = self.generic_dialog("dir")
         self.cache()
-
+    
     def cache(self):
         filename = self.preprocess(self.to_be_cached)
 
@@ -250,21 +245,24 @@ class ManagerGUI:
         elif os.path.isdir(filename):
             rc_contents[filename] = ["d", "*"]
         else:
-            print(i + " - несуществующий файл/директория. Пропускаем...")
+            print(filename + " - несуществующий файл/директория. Пропускаем...")
        
         f = open(self.rc_name, "w")
         f.write(json.dumps(rc_contents, indent=4))
         f.close()
         
         self.commands_out.setText("-----")
-
+    
     # Знаю, что код дублируется из cache(), но мне пока что всё равно
     def cache_mask(self):
         if self.rc_is_not_set():
             self.commands_out.setText("ОШИБКА: rc-файл не задан")
             return 1
-        
-        args = self.preprocess(self.cache_in.text().split())
+
+        self.to_be_cached = self.generic_dialog("dir")
+
+        args_raw = [self.cache_mask_in.text(), self.to_be_cached]
+        args = self.preprocess(args_raw)
         mask = args[0]
         filenames = args[1:]
         
@@ -320,7 +318,7 @@ class ManagerGUI:
 
         for i in file_list.keys():
             if file_list[i][1] == "*": # без маски
-                os.system("cp -r --parents " + i + " " + self.config_dir)
+                os.system("cp -r --parents \"" + i + "\" " + self.config_dir)
             else:
                 os.system("find " + i + " -name \"" + file_list[i][1] + "\" -exec cp --parents {} " + self.config_dir + " \;")
 
