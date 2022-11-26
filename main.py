@@ -6,7 +6,8 @@ from PyQt5.QtGui import *
 from PyQt5.QtWidgets import *
 
 # TODO
-# - избавиться от дупликатного кода (его *очень* много) - можно через декораторы
+# - сделать выбор скрытых файлов и папок
+# - дописать уже наконец-то спустя 2 месяца создание работы на cron
 
 MAIN_PATH = os.path.dirname(__file__) + "/" + os.path.basename(__file__)
 HOME_DIR = os.environ["HOME"]
@@ -147,7 +148,16 @@ class ManagerGUI:
         # Показ вкладок и окна
         self.grid_main.addWidget(self.tabs, 0, 0)
         self.window.show()
-        
+
+    def rc_check(func): # черная декораторная магия
+        def check_and_run(self):
+            if self.rc_is_not_set():
+                self.commands_out.setText("ОШИБКА: rc-файл не задан")
+                return 1
+            else:
+               func(self)
+        return check_and_run
+
     def preprocess(self, args):
         # заменяем тильду в аргументе на домашнюю директорию пользователя
         if type(args) == str:
@@ -163,12 +173,9 @@ class ManagerGUI:
         if None in [self.rc_name, self.rc_dir, self.config_dir]:
             return True
         return False
-    
+   
+    @rc_check
     def show_rc(self):
-        if self.rc_is_not_set():
-            self.commands_out.setText("ОШИБКА: rc-файл не задан")
-            return 1
-
         try:
             contents = json.load(open(self.rc_name, "r"))
         except FileNotFoundError:
@@ -200,7 +207,7 @@ class ManagerGUI:
                 self.window,
                 "Открыть файл",
                 f"{HOME_DIR}",
-            )
+            )[0] # ибо этот метод возвращает название файла и фильтр
         return name
 
     def set_rc_dialog(self):
@@ -212,21 +219,18 @@ class ManagerGUI:
         
         self.commands_out.setText("-----")
 
+    @rc_check
     def cache_file_dialog(self):
-        if self.rc_is_not_set():
-            self.commands_out.setText("ОШИБКА: rc-файл не задан")
-            return 1
         self.to_be_cached = self.generic_dialog("file")
         #print(filename)
         self.cache()
 
+    @rc_check
     def cache_dir_dialog(self):
-        if self.rc_is_not_set():
-            self.commands_out.setText("ОШИБКА: rc-файл не задан")
-            return 1
         self.to_be_cached = self.generic_dialog("dir")
         self.cache()
     
+    @rc_check
     def cache(self):
         filename = self.preprocess(self.to_be_cached)
 
@@ -254,6 +258,7 @@ class ManagerGUI:
         self.commands_out.setText("-----")
     
     # Знаю, что код дублируется из cache(), но мне пока что всё равно
+    @rc_check
     def cache_mask(self):
         if self.rc_is_not_set():
             self.commands_out.setText("ОШИБКА: rc-файл не задан")
@@ -288,7 +293,8 @@ class ManagerGUI:
         f.close()
 
         self.commands_out.setText("-----")
-
+    
+    # это пока трогать не буду
     def uncache(self):
         args = self.preprocess(args)
         filenames = args[0]
@@ -306,6 +312,7 @@ class ManagerGUI:
         f.write(json.dumps(rc_contents, indent=4))
         f.close()
 
+    @rc_check
     def backup(self):
         #custom_commit_msg = True
 
@@ -350,6 +357,7 @@ class ManagerGUI:
         
         self.commands_out.setText("-----")
 
+    @rc_check
     def git_init(self):
         origin_link = self.preprocess(self.git_init_in.text())
         repo_name = origin_link.split("/")[-1]
@@ -373,11 +381,8 @@ class ManagerGUI:
         self.commands_out.setText("-----")
 
     # Всё ещё не работает, но концепт понятен. Допилю в Qt-версии
+    @rc_check
     def schedule(self):
-        if self.rc_is_not_set():
-            self.commands_out.setText("ОШИБКА: rc-файл не задан")
-            return 1
-        
         job_type = self.schedule_choices.currentText()
         cronjob_types = {"ежедневно": "@daily", "еженедельно": "@weekly", "ежемесячно": "@monthly"}
         cron_status = os.popen("systemctl --no-pager status cronie").read()
