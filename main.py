@@ -7,11 +7,52 @@ from PyQt5.QtWidgets import *
 
 # TODO
 # - сделать выбор скрытых файлов и папок
-# - дописать уже наконец-то спустя 2 месяца создание работы на cron
 
 MAIN_PATH = os.path.dirname(__file__) + "/" + os.path.basename(__file__)
 HOME_DIR = os.environ["HOME"]
 USERNAME = os.environ["USER"]
+
+def run_auto_backup(): # опять дупликат
+    args = sys.argv[2:]
+    rc_dir = args[0]    
+    rc_name = rc_dir + "/.conbatrc"
+    config_dir = rc_dir + "/configs"
+    print(rc_dir, rc_name)
+
+    file_list = json.load(open(rc_name, "r"))
+    if not os.path.isdir(config_dir):
+        os.mkdir(config_dir)
+    else:
+        # rm не стирает скрытые директории, так что .git остаётся
+        os.system("rm -r " + config_dir + "/*") 
+
+    for i in file_list.keys():
+        if file_list[i][1] == "*": # без маски
+            os.system("cp -r --parents \"" + i + "\" " + config_dir)
+        else:
+            os.system("find " + i + " -name \"" + file_list[i][1] + "\" -exec cp --parents {} " + onfig_dir + " \;")
+
+    # если есть git-репозиторий
+    if os.path.isdir(config_dir + "/.git"):
+        gh_username = args[1]
+        gh_token = args[2]
+
+        f = open(".reponame", "r")
+        repo_name = f.readlines()[0]
+        f.close()
+
+        os.chdir(config_dir)
+        os.system('git add -A')
+
+        try:
+            commit_count = int(os.popen("git rev-list --count HEAD").read())
+        except ValueError:
+            commit_count = 0
+        commit_msg = "Копия #{}".format(commit_count + 1)
+
+        os.system('git commit -m "{}"'.format(commit_msg))
+        os.system('git push https://{}:{}@github.com/{}/{}'.format(gh_username, gh_token, gh_username, repo_name))
+        os.chdir(self.rc_dir)
 
 class ManagerGUI:
     global MAIN_PATH
@@ -383,8 +424,8 @@ class ManagerGUI:
     # Всё ещё не работает, но концепт понятен. Допилю в Qt-версии
     @rc_check
     def schedule(self):
-        job_type = self.schedule_choices.currentText()
         cronjob_types = {"ежедневно": "@daily", "еженедельно": "@weekly", "ежемесячно": "@monthly"}
+        job_type = cronjob_types[self.schedule_choices.currentText()]
         cron_status = os.popen("systemctl --no-pager status cronie").read()
 
         # Включаем cron при необходимости
@@ -403,10 +444,15 @@ class ManagerGUI:
         crontab_contents = f.readlines()
         f.close()
 
-        conbat_cronjob = cronjob_types[job_type] + " " + MAIN_PATH + " backup " + self.rc_dir + " # conbat job\n"
-        conbat_cronjob_line_id = 0
+        if os.path.isdir(self.config_dir + "/.git"):
+            gh_username = self.git_creds_username.text()
+            gh_token = self.git_creds_token.text()
+            conbat_cronjob = f"{job_type} python3 {MAIN_PATH} auto_backup {self.rc_dir} {gh_username} {gh_token} # conbat job\n"
+        else:
+            conbat_cronjob = f"{job_type} python3 {MAIN_PATH} auto_backup {self.rc_dir} # conbat job\n"
 
         # удаляем старую запись и добавляем новую на её место
+        conbat_cronjob_line_id = 0
         for i in range(len(crontab_contents)-1):
             if "# conbat job" in crontab_contents[i]:
                 crontab_contents.pop(i)
@@ -423,6 +469,9 @@ class ManagerGUI:
         self.commands_out.setText("-----")
 
 if __name__ == "__main__":
-    gui = ManagerGUI()
-    sys.exit(gui.app.exec_())
+    if "auto_backup" in sys.argv: # если вызывается cron'ом
+        run_auto_backup()
+    else:
+        gui = ManagerGUI()
+        sys.exit(gui.app.exec_())
 
