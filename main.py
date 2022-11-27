@@ -17,7 +17,7 @@ def run_auto_backup(): # опять дупликат
     rc_dir = args[0]    
     rc_name = rc_dir + "/.conbatrc"
     config_dir = rc_dir + "/configs"
-    print(rc_dir, rc_name)
+    #print(rc_dir, rc_name, config_dir)
 
     file_list = json.load(open(rc_name, "r"))
     if not os.path.isdir(config_dir):
@@ -30,7 +30,7 @@ def run_auto_backup(): # опять дупликат
         if file_list[i][1] == "*": # без маски
             os.system("cp -r --parents \"" + i + "\" " + config_dir)
         else:
-            os.system("find " + i + " -name \"" + file_list[i][1] + "\" -exec cp --parents {} " + onfig_dir + " \;")
+            os.system("find " + i + " -name \"" + file_list[i][1] + "\" -exec cp --parents {} " + config_dir + " \;")
 
     # если есть git-репозиторий
     if os.path.isdir(config_dir + "/.git"):
