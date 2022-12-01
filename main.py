@@ -12,48 +12,6 @@ MAIN_PATH = os.path.dirname(__file__) + "/" + os.path.basename(__file__)
 HOME_DIR = os.environ["HOME"]
 USERNAME = os.environ["USER"]
 
-def run_auto_backup(): # опять дупликат
-    args = sys.argv[2:]
-    rc_dir = args[0]    
-    rc_name = rc_dir + "/.conbatrc"
-    config_dir = rc_dir + "/configs"
-    #print(rc_dir, rc_name, config_dir)
-
-    file_list = json.load(open(rc_name, "r"))
-    if not os.path.isdir(config_dir):
-        os.mkdir(config_dir)
-    else:
-        # rm не стирает скрытые директории, так что .git остаётся
-        os.system("rm -r " + config_dir + "/*") 
-
-    for i in file_list.keys():
-        if file_list[i][1] == "*": # без маски
-            os.system("cp -r --parents \"" + i + "\" " + config_dir)
-        else:
-            os.system("find " + i + " -name \"" + file_list[i][1] + "\" -exec cp --parents {} " + config_dir + " \;")
-
-    # если есть git-репозиторий
-    if os.path.isdir(config_dir + "/.git"):
-        gh_username = args[1]
-        gh_token = args[2]
-
-        f = open(".reponame", "r")
-        repo_name = f.readlines()[0]
-        f.close()
-
-        os.chdir(config_dir)
-        os.system('git add -A')
-
-        try:
-            commit_count = int(os.popen("git rev-list --count HEAD").read())
-        except ValueError:
-            commit_count = 0
-        commit_msg = "Копия #{}".format(commit_count + 1)
-
-        os.system('git commit -m "{}"'.format(commit_msg))
-        os.system('git push https://{}:{}@github.com/{}/{}'.format(gh_username, gh_token, gh_username, repo_name))
-        os.chdir(self.rc_dir)
-
 class ConfigManager:
     global MAIN_PATH
     global HOME_DIR
@@ -69,7 +27,7 @@ class ConfigManager:
         self.to_be_cached = None
         
         ## без интерфейса
-        self.no_gui = console_only
+        self.no_gui = no_gui
         
         if self.no_gui:
             self.rc_dir = args[0][0]
