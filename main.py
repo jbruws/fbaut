@@ -54,27 +54,39 @@ def run_auto_backup(): # опять дупликат
         os.system('git push https://{}:{}@github.com/{}/{}'.format(gh_username, gh_token, gh_username, repo_name))
         os.chdir(self.rc_dir)
 
-class ManagerGUI:
+class ConfigManager:
     global MAIN_PATH
     global HOME_DIR
     global USERNAME
 
-    def __init__(self):
+    def __init__(self, no_gui=False, *args):
+        ## Данные rc
+        self.rc_dir = None
+        self.rc_name = None
+        self.config_dir = None
         
+        ## Выбираемая директория
+        self.to_be_cached = None
+        
+        ## без интерфейса
+        self.no_gui = console_only
+        
+        if self.no_gui:
+            self.rc_dir = args[0][0]
+            self.rc_name = self.rc_dir + "/.conbatrc"
+            self.config_dir = self.rc_dir + "/configs"
+            os.chdir(self.rc_dir)
+            self.cli_args = args
+        else:
+            self.create_ui()
+
+    def create_ui(self):
         ## Основное
         self.app = QApplication(sys.argv)
         self.window = QDialog()
         self.grid_main = QGridLayout()
         self.window.setLayout(self.grid_main)
         self.window.setGeometry(0, 0, 500, 250)
-
-        ## Данные rc
-        self.rc_dir = None
-        self.rc_name = None
-        self.config_dir = None
-
-        ## Выбираемая директория
-        self.to_be_cached = None
 
         # Определяем вкладки
         self.tabs = QTabWidget(self.window)
@@ -388,15 +400,20 @@ class ManagerGUI:
             except ValueError:
                 commit_count = 0
             commit_msg = "Копия #{}".format(commit_count + 1)
-
-            gh_username = self.git_creds_username.text()
-            gh_token = self.git_creds_token.text()
+            
+            if self.no_gui:
+                gh_username = self.cli_args[1]
+                gh_token = self.cli_args[2]
+            else:
+                gh_username = self.git_creds_username.text()
+                gh_token = self.git_creds_token.text()
                 
             os.system('git commit -m "{}"'.format(commit_msg))
             os.system('git push https://{}:{}@github.com/{}/{}'.format(gh_username, gh_token, gh_username, repo_name))
             os.chdir(self.rc_dir)
         
-        self.commands_out.setText("-----")
+        if not self.no_gui:
+            self.commands_out.setText("-----")
 
     @rc_check
     def git_init(self):
@@ -447,9 +464,9 @@ class ManagerGUI:
         if os.path.isdir(self.config_dir + "/.git"):
             gh_username = self.git_creds_username.text()
             gh_token = self.git_creds_token.text()
-            conbat_cronjob = f"{job_type} python3 {MAIN_PATH} auto_backup {self.rc_dir} {gh_username} {gh_token} # conbat job\n"
+            conbat_cronjob = f"{job_type} python3 {MAIN_PATH} --auto_backup {self.rc_dir} {gh_username} {gh_token} # conbat job\n"
         else:
-            conbat_cronjob = f"{job_type} python3 {MAIN_PATH} auto_backup {self.rc_dir} # conbat job\n"
+            conbat_cronjob = f"{job_type} python3 {MAIN_PATH} --auto_backup {self.rc_dir} # conbat job\n"
 
         # удаляем старую запись и добавляем новую на её место
         conbat_cronjob_line_id = 0
@@ -469,9 +486,10 @@ class ManagerGUI:
         self.commands_out.setText("-----")
 
 if __name__ == "__main__":
-    if "auto_backup" in sys.argv: # если вызывается cron'ом
-        run_auto_backup()
+    if "--auto_backup" in sys.argv: # если вызывается cron'ом
+        manager = ConfigManager(True, sys.argv[2:])
+        manager.backup()
     else:
-        gui = ManagerGUI()
-        sys.exit(gui.app.exec_())
+        manager = ConfigManager()
+        sys.exit(manager.app.exec_())
 
