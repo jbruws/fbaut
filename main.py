@@ -92,7 +92,7 @@ class ConfigManager:
         self.grid_rc.addWidget(self.cache_mask_in, 2, 0)
 
         self.cache_mask_submit = QPushButton(self.window)
-        self.cache_mask_submit.clicked.connect(self.cache_mask)
+        self.cache_mask_submit.clicked.connect(self.cache_mask_dialog)
         self.cache_mask_submit.setText("Кэшировать по маске")
         self.grid_rc.addWidget(self.cache_mask_submit, 2, 1)
 
@@ -160,7 +160,9 @@ class ConfigManager:
         self.grid_main.addWidget(self.tabs, 0, 0)
         self.window.show()
 
-    def rc_check(func): # черная декораторная магия
+    ## Проверка rc и обработка комманд
+
+    def rc_check(func): 
         def check_and_run(self):
             if self.rc_is_not_set():
                 self.commands_out.setText("ОШИБКА: rc-файл не задан")
@@ -168,6 +170,11 @@ class ConfigManager:
             else:
                func(self)
         return check_and_run
+    
+    def rc_is_not_set(self): # ёмкое название
+        if None in [self.rc_name, self.rc_dir, self.config_dir]:
+            return True
+        return False
 
     def preprocess(self, args):
         # заменяем тильду в аргументе на домашнюю директорию пользователя
@@ -180,32 +187,9 @@ class ConfigManager:
             print("ОШИБКА: preprocess() принимает строки или списки строк")
         return args
 
-    def rc_is_not_set(self): # ёмкое название
-        if None in [self.rc_name, self.rc_dir, self.config_dir]:
-            return True
-        return False
-   
-    @rc_check
-    def show_rc(self):
-        try:
-            contents = json.load(open(self.rc_name, "r"))
-        except FileNotFoundError:
-            return("ОШИБКА: .conbatrc не найден.")
+    ## Файловые диалоги
 
-        contents_string = "---------- .conbatrc ----------\n"
-        for i in list(contents.keys()):
-            if contents[i][0] == "f":
-                contents_string += "file | {:>20} |\n".format(i)
-            else:
-                contents_string += "dir  | {:>20} | mask = {:<8}\n".format(i, contents[i][1])
-        if self.show_rc_out.text() == contents_string:
-            self.show_rc_out.setText("---------- .conbatrc ----------")
-        else:
-            self.show_rc_out.setText(contents_string)
-        
-        self.commands_out.setText("-----")
-
-    def generic_dialog(self, target_type):
+    def generic_dialog(self, target_type="file"):
         dialog = QFileDialog()
         if target_type == "dir":
             name = dialog.getExistingDirectory(
@@ -218,7 +202,7 @@ class ConfigManager:
                 self.window,
                 "Открыть файл",
                 f"{HOME_DIR}",
-            )[0] # ибо этот метод возвращает название файла и фильтр
+            )[0] # ибо этот метод возвращает название файла и фильтр по типу файла
         return name
 
     def set_rc_dialog(self):
@@ -240,6 +224,33 @@ class ConfigManager:
     def cache_dir_dialog(self):
         self.to_be_cached = self.generic_dialog("dir")
         self.cache()
+    
+    @rc_check
+    def cache_mask_dialog(self):
+        self.to_be_cached = self.generic_dialog("dir")
+        self.cache_mask()
+    
+    ## Собственно комманды
+
+    @rc_check
+    def show_rc(self):
+        try:
+            contents = json.load(open(self.rc_name, "r"))
+        except FileNotFoundError:
+            return("ОШИБКА: .conbatrc не найден.")
+
+        contents_string = "---------- .conbatrc ----------\n"
+        for i in list(contents.keys()):
+            if contents[i][0] == "f":
+                contents_string += "file | {:>20} |\n".format(i)
+            else:
+                contents_string += "dir  | {:>20} | mask = {:<8}\n".format(i, contents[i][1])
+        if self.show_rc_out.text() == contents_string:
+            self.show_rc_out.setText("---------- .conbatrc ----------")
+        else:
+            self.show_rc_out.setText(contents_string)
+        
+        self.commands_out.setText("-----")
     
     @rc_check
     def cache(self):
@@ -268,15 +279,11 @@ class ConfigManager:
         
         self.commands_out.setText("-----")
     
-    # Знаю, что код дублируется из cache(), но мне пока что всё равно
     @rc_check
     def cache_mask(self):
-        if self.rc_is_not_set():
-            self.commands_out.setText("ОШИБКА: rc-файл не задан")
+        if self.cache_mask_in.text() == "":
+            self.commands_out.setText("ОШИБКА: введите маску файла")
             return 1
-
-        self.to_be_cached = self.generic_dialog("dir")
-
         args_raw = [self.cache_mask_in.text(), self.to_be_cached]
         args = self.preprocess(args_raw)
         mask = args[0]
@@ -349,10 +356,6 @@ class ConfigManager:
             os.chdir(self.config_dir)
             os.system('git add -A')
 
-            # (временно убрал) используем пользовательское название коммита, если оно есть
-            #if args != ([],) and custom_commit_msg:
-            #    commit_msg = " ".join(args[0][:])
-            #else:
             try:
                 commit_count = int(os.popen("git rev-list --count HEAD").read())
             except ValueError:
@@ -396,7 +399,6 @@ class ConfigManager:
         
         self.commands_out.setText("-----")
 
-    # Всё ещё не работает, но концепт понятен. Допилю в Qt-версии
     @rc_check
     def schedule(self):
         cronjob_types = {"ежедневно": "@daily", "еженедельно": "@weekly", "ежемесячно": "@monthly"}
