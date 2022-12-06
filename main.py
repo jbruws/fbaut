@@ -331,14 +331,14 @@ class ConfigManager:
         if not os.path.isdir(self.config_dir):
             os.mkdir(self.config_dir)
         else:
-            # rm не стирает скрытые директории, так что .git остаётся
+            # rm не стирает скрытые директории (и файлы), так что .git и .conbatrc остаются
             os.system("rm -r " + self.config_dir + "/*") 
 
         for i in file_list.keys():
             if file_list[i][1] == "*": # без маски
-                os.system("cp -r --parents \"" + i + "\" " + self.config_dir)
-            else:
-                os.system("find " + i + " -name \"" + file_list[i][1] + "\" -exec cp --parents {} " + self.config_dir + " \;")
+                os.system("find \"" + i + "\" -not -path \"" + self.config_dir + "\" -exec cp -r --parents {} " + self.config_dir + " \;")
+            else: # с маской
+                os.system("find \"" + i + "\" -name \"" + file_list[i][1] + "\" -not -path \"" + self.config_dir + "\" -exec cp -r --parents {} " + self.config_dir + " \;")
 
         # если есть git-репозиторий
         if os.path.isdir(self.config_dir + "/.git"):
