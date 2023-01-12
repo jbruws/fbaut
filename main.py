@@ -69,7 +69,13 @@ class ConfigManager:
         self.set_rc_submit = QPushButton(self.window)
         self.set_rc_submit.clicked.connect(self.set_rc_dialog)
         self.set_rc_submit.setText("Выбрать rc")
-        self.grid_rc.addWidget(self.set_rc_submit, 0, 0, 1, 2)
+        self.grid_rc.addWidget(self.set_rc_submit, 0, 0, 1, 1)
+        
+        # Создание файла rc
+        self.set_rc_submit = QPushButton(self.window)
+        self.set_rc_submit.clicked.connect(self.create_rc_dialog)
+        self.set_rc_submit.setText("Создать rc")
+        self.grid_rc.addWidget(self.set_rc_submit, 0, 1, 1, 1)
         
         # Кнопка для бэкапа
         self.backup_submit = QPushButton(self.window)
@@ -98,8 +104,8 @@ class ConfigManager:
 
         # Вывод show_rc
         self.show_rc_out = QLabel(self.window)
-        self.show_rc_out.setText("--------- .conbatrc ---------")
-        self.grid_rc.addWidget(self.show_rc_out, 3, 1, 1, 3)
+        self.show_rc_out.setText("__________ .conbatrc __________")
+        self.grid_rc.addWidget(self.show_rc_out, 3, 0, 1, 2)
 
         self.show_rc_submit = QPushButton(self.window)
         self.show_rc_submit.clicked.connect(self.show_rc)
@@ -152,7 +158,7 @@ class ConfigManager:
 
         # Вывод команд (вне вкладок)
         self.commands_out = QLabel(self.window)
-        self.commands_out.setText("-----")
+        self.reset_output()
         self.commands_out.setAlignment(Qt.AlignCenter)
         self.grid_main.addWidget(self.commands_out, 1, 0)
 
@@ -160,7 +166,7 @@ class ConfigManager:
         self.grid_main.addWidget(self.tabs, 0, 0)
         self.window.show()
 
-    ## Проверка rc и обработка комманд
+    ## Проверка rc и обработка команд
 
     def rc_check(func): 
         def check_and_run(self):
@@ -187,48 +193,76 @@ class ConfigManager:
             print("ОШИБКА: preprocess() принимает строки или списки строк")
         return args
 
+    def reset_output(self):
+        self.commands_out.setText("...")
+
     ## Файловые диалоги
 
     def generic_dialog(self, target_type="file"):
         dialog = QFileDialog()
-        if target_type == "dir":
-            name = dialog.getExistingDirectory(
-                self.window,
-                "Открыть директорию",
-                f"{HOME_DIR}",
-            )
-        else: # подразумевается, что в остальных случаях файл
-            name = dialog.getOpenFileName(
-                self.window,
-                "Открыть файл",
-                f"{HOME_DIR}",
-            )[0] # ибо этот метод возвращает название файла и фильтр по типу файла
-        return name
+        dialog.setFilter(QDir.AllEntries | QDir.NoDotAndDotDot | QDir.Hidden)
+        dialog.setDirectory(HOME_DIR)
+        if target_type == "dir": # Директории не принимаются по умолчанию
+            dialog.setFileMode(QFileDialog.Directory)
+        else:
+            dialog.setFileMode(QFileDialog.AnyFile)
+        if dialog.exec_():
+            names = dialog.selectedFiles()[0]
+            return names
+        return None
 
-    def set_rc_dialog(self):
-        self.rc_dir = self.generic_dialog("dir")
-        
+    def create_rc_dialog(self): # почти полный дупликат set_rc_dialog
+        rc_dir = self.generic_dialog("dir")
+        if rc_dir == None:
+            self.reset_output()
+            return 1
+
+        self.rc_dir = rc_dir
         os.chdir(self.rc_dir)
         self.config_dir = self.rc_dir + "/configs"
         self.rc_name = ".conbatrc"
         
-        self.commands_out.setText("-----")
+        full_name = self.rc_dir + "/" + self.rc_name
+        # создаём файл
+        if os.path.isfile(full_name):
+            self.commands_out.setText("Уже есть .conbatrc в этой директории")
+            return 1
+        
+        os.system("echo {} > " + full_name)
+        self.reset_output()
+
+    def set_rc_dialog(self):
+        rc = self.generic_dialog()
+        if rc == None:
+            self.reset_output()
+            return 1
+
+        self.rc_dir = "/".join((rc.split("/"))[:-1]) # Все, кроме последнего элемента
+        os.chdir(self.rc_dir)
+        self.config_dir = self.rc_dir + "/configs"
+        self.rc_name = ".conbatrc"
+        
+        self.reset_output()
 
     @rc_check
     def cache_file_dialog(self):
         self.to_be_cached = self.generic_dialog("file")
         #print(filename)
-        self.cache()
+        if self.to_be_cached != None:
+            self.cache()
 
     @rc_check
     def cache_dir_dialog(self):
         self.to_be_cached = self.generic_dialog("dir")
-        self.cache()
+        print(self.to_be_cached)
+        if self.to_be_cached != None:
+            self.cache()
     
     @rc_check
     def cache_mask_dialog(self):
         self.to_be_cached = self.generic_dialog("dir")
-        self.cache_mask()
+        if self.to_be_cached != None:
+            self.cache_mask()
     
     ## Собственно комманды
 
@@ -239,18 +273,18 @@ class ConfigManager:
         except FileNotFoundError:
             return("ОШИБКА: .conbatrc не найден.")
 
-        contents_string = "---------- .conbatrc ----------\n"
+        contents_string = "__________ .conbatrc __________\n"
         for i in list(contents.keys()):
             if contents[i][0] == "f":
                 contents_string += "file | {:>20} |\n".format(i)
             else:
                 contents_string += "dir  | {:>20} | mask = {:<8}\n".format(i, contents[i][1])
         if self.show_rc_out.text() == contents_string:
-            self.show_rc_out.setText("---------- .conbatrc ----------")
+            self.show_rc_out.setText("__________ .conbatrc __________")
         else:
             self.show_rc_out.setText(contents_string)
         
-        self.commands_out.setText("-----")
+        self.reset_output()
     
     @rc_check
     def cache(self):
@@ -277,7 +311,7 @@ class ConfigManager:
         f.write(json.dumps(rc_contents, indent=4))
         f.close()
         
-        self.commands_out.setText("-----")
+        self.reset_output()
     
     @rc_check
     def cache_mask(self):
@@ -310,7 +344,7 @@ class ConfigManager:
         f.write(json.dumps(rc_contents, indent=4))
         f.close()
 
-        self.commands_out.setText("-----")
+        self.reset_output()
     
     # это пока трогать не буду
     def uncache(self):
@@ -374,7 +408,7 @@ class ConfigManager:
             os.chdir(self.rc_dir)
         
         if not self.no_gui:
-            self.commands_out.setText("-----")
+            self.reset_output()
 
     @rc_check
     def git_init(self):
@@ -397,7 +431,7 @@ class ConfigManager:
         os.system("git remote add origin " + origin_link)
         os.chdir(self.rc_dir)
         
-        self.commands_out.setText("-----")
+        self.reset_output()
 
     @rc_check
     def schedule(self):
@@ -443,7 +477,7 @@ class ConfigManager:
             f.write(i)
         f.close()
         
-        self.commands_out.setText("-----")
+        self.reset_output()
 
 if __name__ == "__main__":
     if "--auto_backup" in sys.argv: # если вызывается cron'ом
