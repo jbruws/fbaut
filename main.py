@@ -6,7 +6,7 @@ from PyQt5.QtGui import *
 from PyQt5.QtWidgets import *
 
 # TODO
-# - сделать выбор скрытых файлов и папок
+# - сделать возможность использования uncache
 
 MAIN_PATH = os.path.dirname(__file__) + "/" + os.path.basename(__file__)
 HOME_DIR = os.environ["HOME"]
@@ -18,15 +18,15 @@ class ConfigManager:
     global USERNAME
 
     def __init__(self, no_gui=False, *args):
-        ## Данные rc
+        # Данные rc
         self.rc_dir = None
         self.rc_name = None
         self.config_dir = None
         
-        ## Выбираемая директория
+        # Выбираемая директория
         self.to_be_cached = None
         
-        ## без интерфейса
+        # без интерфейса
         self.no_gui = no_gui
         
         if self.no_gui:
@@ -171,7 +171,7 @@ class ConfigManager:
     def rc_check(func): 
         def check_and_run(self):
             if self.rc_is_not_set():
-                self.commands_out.setText("ОШИБКА: rc-файл не задан")
+                self.reset_output("err", "rc-файл не задан")
                 return 1
             else:
                func(self)
@@ -193,14 +193,19 @@ class ConfigManager:
             print("ОШИБКА: preprocess() принимает строки или списки строк")
         return args
 
-    def reset_output(self):
-        self.commands_out.setText("...")
+    def reset_output(self, mode="blank", msg=""):
+        if mode == "success":
+            self.commands_out.setText("Выполнено")
+        elif mode == "err":
+            self.commands_out.setText("ОШИБКА: " + msg)
+        else:
+            self.commands_out.setText("...")
 
     ## Файловые диалоги
 
     def generic_dialog(self, target_type="file"):
         dialog = QFileDialog()
-        dialog.setFilter(QDir.AllEntries | QDir.NoDotAndDotDot | QDir.Hidden)
+        dialog.setFilter(QDir.AllEntries | QDir.NoDotAndDotDot | QDir.Hidden) # отображение скрытых файлов
         dialog.setDirectory(HOME_DIR)
         if target_type == "dir": # Директории не принимаются по умолчанию
             dialog.setFileMode(QFileDialog.Directory)
@@ -211,38 +216,30 @@ class ConfigManager:
             return names
         return None
 
-    def create_rc_dialog(self): # почти полный дупликат set_rc_dialog
-        rc_dir = self.generic_dialog("dir")
-        if rc_dir == None:
-            self.reset_output()
+    def set_rc_common(self, dir_name):
+        if dir_name == None: # если юзер ничего не выбрал
+            self.reset_output("err", "вы не выбрали файл/директорию")
             return 1
 
-        self.rc_dir = rc_dir
+        self.rc_dir = dir_name
         os.chdir(self.rc_dir)
         self.config_dir = self.rc_dir + "/configs"
         self.rc_name = ".conbatrc"
-        
-        full_name = self.rc_dir + "/" + self.rc_name
-        # создаём файл
-        if os.path.isfile(full_name):
-            self.commands_out.setText("Уже есть .conbatrc в этой директории")
-            return 1
-        
-        os.system("echo {} > " + full_name)
-        self.reset_output()
+        self.reset_output("success")
+
+    def create_rc_dialog(self): # почти полный дупликат set_rc_dialog
+        rc_dir = self.generic_dialog("dir")
+        full_name = rc_dir + "/.conbatrc"
+        if not os.path.isfile(full_name):
+            # создаём файл
+            os.system("echo {} > " + full_name)
+        else:
+            self.reset_output("err", ".conbatrc уже есть в этой директории")
+        self.set_rc_common(rc_dir)
 
     def set_rc_dialog(self):
         rc = self.generic_dialog()
-        if rc == None:
-            self.reset_output()
-            return 1
-
-        self.rc_dir = "/".join((rc.split("/"))[:-1]) # Все, кроме последнего элемента
-        os.chdir(self.rc_dir)
-        self.config_dir = self.rc_dir + "/configs"
-        self.rc_name = ".conbatrc"
-        
-        self.reset_output()
+        self.set_rc_common("/".join((rc.split("/"))[:-1])) # Подаём все, кроме последнего элемента
 
     @rc_check
     def cache_file_dialog(self):
@@ -254,7 +251,6 @@ class ConfigManager:
     @rc_check
     def cache_dir_dialog(self):
         self.to_be_cached = self.generic_dialog("dir")
-        print(self.to_be_cached)
         if self.to_be_cached != None:
             self.cache()
     
@@ -271,7 +267,8 @@ class ConfigManager:
         try:
             contents = json.load(open(self.rc_name, "r"))
         except FileNotFoundError:
-            return("ОШИБКА: .conbatrc не найден.")
+            self.reset_output("err", ".conbatrc не найден")
+            return 1
 
         contents_string = "__________ .conbatrc __________\n"
         for i in list(contents.keys()):
@@ -284,7 +281,7 @@ class ConfigManager:
         else:
             self.show_rc_out.setText(contents_string)
         
-        self.reset_output()
+        self.reset_output("success")
     
     @rc_check
     def cache(self):
@@ -311,12 +308,12 @@ class ConfigManager:
         f.write(json.dumps(rc_contents, indent=4))
         f.close()
         
-        self.reset_output()
+        self.reset_output("success")
     
     @rc_check
     def cache_mask(self):
         if self.cache_mask_in.text() == "":
-            self.commands_out.setText("ОШИБКА: введите маску файла")
+            self.reset_output("err", "введите маску файла")
             return 1
         args_raw = [self.cache_mask_in.text(), self.to_be_cached]
         args = self.preprocess(args_raw)
@@ -344,25 +341,10 @@ class ConfigManager:
         f.write(json.dumps(rc_contents, indent=4))
         f.close()
 
-        self.reset_output()
+        self.reset_output("success")
     
-    # это пока трогать не буду
-    def uncache(self):
-        args = self.preprocess(args)
-        filenames = args[0]
-        if not os.path.isfile(self.rc_name):
-            print("ОШИБКА: файла .conbatrc не существует.")
-            return 1
-        f = open(self.rc_name, "r")
-        rc_contents = json.loads(f.read())
-        f.close()
-        for i in filenames:
-            if i in rc_contents.keys():
-                del(rc_contents[i])
-        
-        f = open(self.rc_name, "w")
-        f.write(json.dumps(rc_contents, indent=4))
-        f.close()
+    # ЗДЕСЬ БУДЕТ НОВЫЙ uncache()
+    # выбор файлов через файловый диалог а не через текстбокс
 
     @rc_check
     def backup(self):
@@ -408,7 +390,7 @@ class ConfigManager:
             os.chdir(self.rc_dir)
         
         if not self.no_gui:
-            self.reset_output()
+            self.reset_output("success")
 
     @rc_check
     def git_init(self):
@@ -420,7 +402,7 @@ class ConfigManager:
         f.close()
 
         if os.path.isdir(self.config_dir + "/.git"):
-            self.commands_out.setText("ОШИБКА: репозиторий Git уже существует в рабочей директории.")
+            self.reset_output("err", "репозиторий Git уже существует в рабочей директории.")
             return 1
 
         if not os.path.isdir(self.config_dir):
@@ -431,7 +413,7 @@ class ConfigManager:
         os.system("git remote add origin " + origin_link)
         os.chdir(self.rc_dir)
         
-        self.reset_output()
+        self.reset_output("success")
 
     @rc_check
     def schedule(self):
@@ -477,7 +459,7 @@ class ConfigManager:
             f.write(i)
         f.close()
         
-        self.reset_output()
+        self.reset_output("success")
 
 if __name__ == "__main__":
     if "--auto_backup" in sys.argv: # если вызывается cron'ом
