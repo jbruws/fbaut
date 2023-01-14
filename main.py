@@ -6,7 +6,7 @@ from PyQt5.QtGui import *
 from PyQt5.QtWidgets import *
 
 # TODO
-# - сделать возможность использования uncache
+# - сделать нормальный UI
 
 MAIN_PATH = os.path.dirname(__file__) + "/" + os.path.basename(__file__)
 HOME_DIR = os.environ["HOME"]
@@ -23,8 +23,9 @@ class ConfigManager:
         self.rc_name = None
         self.config_dir = None
         
-        # Выбираемая директория
+        # Объекты для кэширования/раскэширования
         self.to_be_cached = None
+        self.to_be_uncached = None
         
         # без интерфейса
         self.no_gui = no_gui
@@ -84,15 +85,15 @@ class ConfigManager:
         self.grid_rc.addWidget(self.backup_submit, 1, 2)
         
         # Кэширование
-        self.cache_submit = QPushButton(self.window)
-        self.cache_submit.clicked.connect(self.cache_file_dialog)
-        self.cache_submit.setText("Кэшировать файл")
-        self.grid_rc.addWidget(self.cache_submit, 1, 0)
+        self.cache_file_submit = QPushButton(self.window)
+        self.cache_file_submit.clicked.connect(self.cache_file_dialog)
+        self.cache_file_submit.setText("Кэшировать файл")
+        self.grid_rc.addWidget(self.cache_file_submit, 1, 0)
         
-        self.cache_submit = QPushButton(self.window)
-        self.cache_submit.clicked.connect(self.cache_dir_dialog)
-        self.cache_submit.setText("Кэшировать папку")
-        self.grid_rc.addWidget(self.cache_submit, 1, 1)
+        self.cache_dir_submit = QPushButton(self.window)
+        self.cache_dir_submit.clicked.connect(self.cache_dir_dialog)
+        self.cache_dir_submit.setText("Кэшировать папку")
+        self.grid_rc.addWidget(self.cache_dir_submit, 1, 1)
 
         self.cache_mask_in = QLineEdit(self.window)
         self.grid_rc.addWidget(self.cache_mask_in, 2, 0)
@@ -101,6 +102,17 @@ class ConfigManager:
         self.cache_mask_submit.clicked.connect(self.cache_mask_dialog)
         self.cache_mask_submit.setText("Кэшировать по маске")
         self.grid_rc.addWidget(self.cache_mask_submit, 2, 1)
+
+        # Раскэширование
+        self.uncache_file = QPushButton(self.window)
+        self.uncache_file.clicked.connect(self.uncache_file_dialog)
+        self.uncache_file.setText("Удалить файл")
+        self.grid_rc.addWidget(self.uncache_file, 4, 0)
+        
+        self.uncache_dir = QPushButton(self.window)
+        self.uncache_dir.clicked.connect(self.uncache_dir_dialog)
+        self.uncache_dir.setText("Удалить папку")
+        self.grid_rc.addWidget(self.uncache_dir, 4, 1)
 
         # Вывод show_rc
         self.show_rc_out = QLabel(self.window)
@@ -204,21 +216,22 @@ class ConfigManager:
     ## Файловые диалоги
 
     def generic_dialog(self, target_type="file"):
-        dialog = QFileDialog()
-        dialog.setFilter(QDir.AllEntries | QDir.NoDotAndDotDot | QDir.Hidden) # отображение скрытых файлов
-        dialog.setDirectory(HOME_DIR)
+        choice_window = QFileDialog()
+        choice_window.setFileMode(choice_window.ExistingFiles)
+        choice_window.setFilter(QDir.AllEntries | QDir.NoDotAndDotDot | QDir.Hidden) # отображение скрытых файлов
+        choice_window.setDirectory(HOME_DIR)
         if target_type == "dir": # Директории не принимаются по умолчанию
-            dialog.setFileMode(QFileDialog.Directory)
+            choice_window.setFileMode(QFileDialog.Directory)
         else:
-            dialog.setFileMode(QFileDialog.AnyFile)
-        if dialog.exec_():
-            names = dialog.selectedFiles()[0]
+            choice_window.setFileMode(QFileDialog.AnyFile)
+        if choice_window.exec_():
+            names = choice_window.selectedFiles()[0]
             return names
+        self.reset_output("err", "файл не указан")
         return None
 
     def set_rc_common(self, dir_name):
         if dir_name == None: # если юзер ничего не выбрал
-            self.reset_output("err", "вы не выбрали файл/директорию")
             return 1
 
         self.rc_dir = dir_name
@@ -259,8 +272,20 @@ class ConfigManager:
         self.to_be_cached = self.generic_dialog("dir")
         if self.to_be_cached != None:
             self.cache_mask()
+
+    @rc_check
+    def uncache_file_dialog(self):
+        self.to_be_uncached = self.generic_dialog("file")
+        if self.to_be_uncached != None:
+            self.uncache()
     
-    ## Собственно комманды
+    @rc_check
+    def uncache_dir_dialog(self):
+        self.to_be_uncached = self.generic_dialog("dir")
+        if self.to_be_uncached != None:
+            self.uncache()
+    
+    ## Собственно команды
 
     @rc_check
     def show_rc(self):
@@ -343,8 +368,22 @@ class ConfigManager:
 
         self.reset_output("success")
     
-    # ЗДЕСЬ БУДЕТ НОВЫЙ uncache()
-    # выбор файлов через файловый диалог а не через текстбокс
+    @rc_check
+    def uncache(self):
+        chosen_file = self.to_be_uncached
+
+        f = open(self.rc_name, "r")
+        rc_contents = json.loads(f.read())
+        f.close()
+
+        if chosen_file in rc_contents.keys():
+            del(rc_contents[chosen_file])
+            f = open(self.rc_name, "w")
+            f.write(json.dumps(rc_contents, indent=4))
+            f.close()
+        else:
+            self.reset_output("err", "указанного файла нет в rc")
+            return 1
 
     @rc_check
     def backup(self):
