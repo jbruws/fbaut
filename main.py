@@ -23,7 +23,7 @@ class ConfigManager:
         self.rc_name = None
         self.config_dir = None
         
-        # Объекты для кэширования/раскэширования
+        # Пути для кэширования/раскэширования
         self.to_be_cached = None
         self.to_be_uncached = None
         
@@ -76,53 +76,54 @@ class ConfigManager:
         self.set_rc_submit = QPushButton(self.window)
         self.set_rc_submit.clicked.connect(self.create_rc_dialog)
         self.set_rc_submit.setText("Создать rc")
-        self.grid_rc.addWidget(self.set_rc_submit, 0, 1, 1, 1)
+        self.grid_rc.addWidget(self.set_rc_submit, 1, 0, 1, 1)
         
         # Кнопка для бэкапа
         self.backup_submit = QPushButton(self.window)
         self.backup_submit.clicked.connect(self.backup)
         self.backup_submit.setText("БЭКАП!")
-        self.grid_rc.addWidget(self.backup_submit, 1, 2)
+        self.grid_rc.addWidget(self.backup_submit, 0, 1, 1, 2)
         
         # Кэширование
         self.cache_file_submit = QPushButton(self.window)
         self.cache_file_submit.clicked.connect(self.cache_file_dialog)
         self.cache_file_submit.setText("Кэшировать файл")
-        self.grid_rc.addWidget(self.cache_file_submit, 1, 0)
+        self.grid_rc.addWidget(self.cache_file_submit, 1, 1)
         
         self.cache_dir_submit = QPushButton(self.window)
         self.cache_dir_submit.clicked.connect(self.cache_dir_dialog)
         self.cache_dir_submit.setText("Кэшировать папку")
-        self.grid_rc.addWidget(self.cache_dir_submit, 1, 1)
+        self.grid_rc.addWidget(self.cache_dir_submit, 1, 2)
 
         self.cache_mask_in = QLineEdit(self.window)
-        self.grid_rc.addWidget(self.cache_mask_in, 2, 0)
+        self.grid_rc.addWidget(self.cache_mask_in, 2, 1)
 
         self.cache_mask_submit = QPushButton(self.window)
         self.cache_mask_submit.clicked.connect(self.cache_mask_dialog)
         self.cache_mask_submit.setText("Кэшировать по маске")
-        self.grid_rc.addWidget(self.cache_mask_submit, 2, 1)
+        self.grid_rc.addWidget(self.cache_mask_submit, 2, 2)
 
         # Раскэширование
         self.uncache_file = QPushButton(self.window)
         self.uncache_file.clicked.connect(self.uncache_file_dialog)
         self.uncache_file.setText("Удалить файл")
-        self.grid_rc.addWidget(self.uncache_file, 4, 0)
+        self.grid_rc.addWidget(self.uncache_file, 4, 1)
         
         self.uncache_dir = QPushButton(self.window)
         self.uncache_dir.clicked.connect(self.uncache_dir_dialog)
         self.uncache_dir.setText("Удалить папку")
-        self.grid_rc.addWidget(self.uncache_dir, 4, 1)
+        self.grid_rc.addWidget(self.uncache_dir, 4, 2)
 
         # Вывод show_rc
         self.show_rc_out = QLabel(self.window)
-        self.show_rc_out.setText("__________ .conbatrc __________")
-        self.grid_rc.addWidget(self.show_rc_out, 3, 0, 1, 2)
+        self.show_rc_out.setText("_ .conbatrc _")
+        #self.show_rc_out.resize(100, 100)
+        self.grid_rc.addWidget(self.show_rc_out, 0, 4)
 
-        self.show_rc_submit = QPushButton(self.window)
-        self.show_rc_submit.clicked.connect(self.show_rc)
-        self.show_rc_submit.setText("Показать/скрыть rc")
-        self.grid_rc.addWidget(self.show_rc_submit, 0, 2)
+        #self.show_rc_submit = QPushButton(self.window)
+        #self.show_rc_submit.clicked.connect(self.show_rc)
+        #self.show_rc_submit.setText("Показать/скрыть rc")
+        #self.grid_rc.addWidget(self.show_rc_submit, 0, 2)
 
         ## ВКЛАДКА 2
 
@@ -240,7 +241,10 @@ class ConfigManager:
         self.rc_name = ".conbatrc"
         self.reset_output("success")
 
-    def create_rc_dialog(self): # почти полный дупликат set_rc_dialog
+        self.show_rc()
+
+    # ну и жесть. надо бы привести все это в порядок
+    def create_rc_dialog(self): 
         rc_dir = self.generic_dialog("dir")
         full_name = rc_dir + "/.conbatrc"
         if not os.path.isfile(full_name):
@@ -306,8 +310,6 @@ class ConfigManager:
         else:
             self.show_rc_out.setText(contents_string)
         
-        self.reset_output("success")
-    
     @rc_check
     def cache(self):
         filename = self.preprocess(self.to_be_cached)
@@ -334,6 +336,7 @@ class ConfigManager:
         f.close()
         
         self.reset_output("success")
+        self.show_rc()
     
     @rc_check
     def cache_mask(self):
@@ -367,6 +370,7 @@ class ConfigManager:
         f.close()
 
         self.reset_output("success")
+        self.show_rc()
     
     @rc_check
     def uncache(self):
@@ -381,6 +385,8 @@ class ConfigManager:
             f = open(self.rc_name, "w")
             f.write(json.dumps(rc_contents, indent=4))
             f.close()
+            self.reset_output("success")
+            self.show_rc()
         else:
             self.reset_output("err", "указанного файла нет в rc")
             return 1
@@ -430,6 +436,7 @@ class ConfigManager:
         
         if not self.no_gui:
             self.reset_output("success")
+            self.show_rc()
 
     @rc_check
     def git_init(self):
@@ -497,7 +504,7 @@ class ConfigManager:
         for i in crontab_contents:
             f.write(i)
         f.close()
-        
+
         self.reset_output("success")
 
 if __name__ == "__main__":
