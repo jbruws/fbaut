@@ -65,54 +65,81 @@ class ConfigManager:
         self.tabs.addTab(self.tab_git_creds, "git user info")
 
         ## ВКЛАДКА 1
+        
+        ## rc коробка
+        self.groupbox_rc = QGroupBox()
+        self.grid_groupbox_rc = QGridLayout()
+        self.groupbox_rc.setLayout(self.grid_groupbox_rc)
 
         # Выбор рабочей директории
         self.set_rc_submit = QPushButton(self.window)
         self.set_rc_submit.clicked.connect(self.set_rc_dialog)
         self.set_rc_submit.setText("Выбрать rc")
-        self.grid_rc.addWidget(self.set_rc_submit, 0, 0, 1, 1)
+        self.grid_groupbox_rc.addWidget(self.set_rc_submit, 0, 0, 1, 1)
         
         # Создание файла rc
         self.set_rc_submit = QPushButton(self.window)
         self.set_rc_submit.clicked.connect(self.create_rc_dialog)
         self.set_rc_submit.setText("Создать rc")
-        self.grid_rc.addWidget(self.set_rc_submit, 1, 0, 1, 1)
+        self.grid_groupbox_rc.addWidget(self.set_rc_submit, 1, 0, 1, 1)
         
-        # Кнопка для бэкапа
+        self.grid_rc.addWidget(self.groupbox_rc, 0, 0, 4, 1)
+        
+        ## Кнопка для бэкапа
+        self.groupbox_backup = QGroupBox()
+        self.grid_groupbox_backup = QGridLayout()
+        self.groupbox_backup.setLayout(self.grid_groupbox_backup)
+        
         self.backup_submit = QPushButton(self.window)
         self.backup_submit.clicked.connect(self.backup)
         self.backup_submit.setText("БЭКАП!")
-        self.grid_rc.addWidget(self.backup_submit, 0, 1, 1, 2)
         
+        self.grid_groupbox_backup.addWidget(self.backup_submit)
+        self.grid_rc.addWidget(self.groupbox_backup, 0, 1)
+        
+        ## Коробка для кэширования
+        self.groupbox_cache = QGroupBox()
+        self.grid_groupbox_cache = QGridLayout()
+        self.groupbox_cache.setLayout(self.grid_groupbox_cache)
+
         # Кэширование
         self.cache_file_submit = QPushButton(self.window)
         self.cache_file_submit.clicked.connect(self.cache_file_dialog)
         self.cache_file_submit.setText("Кэшировать файл")
-        self.grid_rc.addWidget(self.cache_file_submit, 1, 1)
+        self.grid_groupbox_cache.addWidget(self.cache_file_submit, 0, 0)
         
         self.cache_dir_submit = QPushButton(self.window)
         self.cache_dir_submit.clicked.connect(self.cache_dir_dialog)
         self.cache_dir_submit.setText("Кэшировать папку")
-        self.grid_rc.addWidget(self.cache_dir_submit, 1, 2)
+        self.grid_groupbox_cache.addWidget(self.cache_dir_submit, 0, 1)
 
         self.cache_mask_in = QLineEdit(self.window)
-        self.grid_rc.addWidget(self.cache_mask_in, 2, 1)
+        self.grid_groupbox_cache.addWidget(self.cache_mask_in, 1, 0)
 
         self.cache_mask_submit = QPushButton(self.window)
         self.cache_mask_submit.clicked.connect(self.cache_mask_dialog)
         self.cache_mask_submit.setText("Кэшировать по маске")
-        self.grid_rc.addWidget(self.cache_mask_submit, 2, 2)
+        self.grid_groupbox_cache.addWidget(self.cache_mask_submit, 1, 1)
+
+        self.grid_rc.addWidget(self.groupbox_cache, 1, 1)
+
+        ## Коробка для раскэширования
+        self.groupbox_uncache = QGroupBox()
+        self.grid_groupbox_uncache = QGridLayout()
+        self.groupbox_uncache.setLayout(self.grid_groupbox_uncache)
 
         # Раскэширование
         self.uncache_file = QPushButton(self.window)
         self.uncache_file.clicked.connect(self.uncache_file_dialog)
         self.uncache_file.setText("Удалить файл")
-        self.grid_rc.addWidget(self.uncache_file, 4, 1)
+        self.grid_groupbox_uncache.addWidget(self.uncache_file, 0, 0)
         
         self.uncache_dir = QPushButton(self.window)
         self.uncache_dir.clicked.connect(self.uncache_dir_dialog)
         self.uncache_dir.setText("Удалить папку")
-        self.grid_rc.addWidget(self.uncache_dir, 4, 2)
+        self.grid_groupbox_uncache.addWidget(self.uncache_dir, 0, 1)
+
+        self.grid_rc.addWidget(self.groupbox_uncache, 2, 1)
 
         # Вывод show_rc
         self.show_rc_out = QLabel(self.window)
