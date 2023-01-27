@@ -1,4 +1,4 @@
-# `conbat` - Config Backup Tool
+# `fbaut` - File Backup Utility
 
 Программа для автоматического резервного копирования файлов.
 ## Зависимости

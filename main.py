@@ -5,9 +5,6 @@ from PyQt5.QtCore import *
 from PyQt5.QtGui import *
 from PyQt5.QtWidgets import *
 
-# TODO
-# - сделать нормальный UI
-
 MAIN_PATH = os.path.dirname(__file__) + "/" + os.path.basename(__file__)
 HOME_DIR = os.environ["HOME"]
 USERNAME = os.environ["USER"]
@@ -32,7 +29,7 @@ class ConfigManager:
         
         if self.no_gui:
             self.rc_dir = args[0][0]
-            self.rc_name = self.rc_dir + "/.conbatrc"
+            self.rc_name = self.rc_dir + "/.fbautrc"
             self.config_dir = self.rc_dir + "/configs"
             os.chdir(self.rc_dir)
             self.cli_args = args
@@ -143,7 +140,7 @@ class ConfigManager:
 
         # Вывод show_rc
         self.show_rc_out = QLabel(self.window)
-        self.show_rc_out.setText("_ .conbatrc _")
+        self.show_rc_out.setText(" .fbautrc ")
         #self.show_rc_out.resize(100, 100)
         self.grid_rc.addWidget(self.show_rc_out, 0, 4)
 
@@ -265,20 +262,19 @@ class ConfigManager:
         self.rc_dir = dir_name
         os.chdir(self.rc_dir)
         self.config_dir = self.rc_dir + "/configs"
-        self.rc_name = ".conbatrc"
+        self.rc_name = ".fbautrc"
         self.reset_output("success")
 
         self.show_rc()
 
-    # ну и жесть. надо бы привести все это в порядок
     def create_rc_dialog(self): 
         rc_dir = self.generic_dialog("dir")
-        full_name = rc_dir + "/.conbatrc"
+        full_name = rc_dir + "/.fbautrc"
         if not os.path.isfile(full_name):
             # создаём файл
             os.system("echo {} > " + full_name)
         else:
-            self.reset_output("err", ".conbatrc уже есть в этой директории")
+            self.reset_output("err", ".fbautrc уже есть в этой директории")
         self.set_rc_common(rc_dir)
 
     def set_rc_dialog(self):
@@ -323,17 +319,17 @@ class ConfigManager:
         try:
             contents = json.load(open(self.rc_name, "r"))
         except FileNotFoundError:
-            self.reset_output("err", ".conbatrc не найден")
+            self.reset_output("err", ".fbautrc не найден")
             return 1
 
-        contents_string = "__________ .conbatrc __________\n"
+        contents_string = "__________ .fbautrc __________\n"
         for i in list(contents.keys()):
             if contents[i][0] == "f":
                 contents_string += "file | {:>20} |\n".format(i)
             else:
                 contents_string += "dir  | {:>20} | mask = {:<8}\n".format(i, contents[i][1])
         if self.show_rc_out.text() == contents_string:
-            self.show_rc_out.setText("__________ .conbatrc __________")
+            self.show_rc_out.setText("__________ .fbautrc __________")
         else:
             self.show_rc_out.setText(contents_string)
         
@@ -426,7 +422,7 @@ class ConfigManager:
         if not os.path.isdir(self.config_dir):
             os.mkdir(self.config_dir)
         else:
-            # rm не стирает скрытые директории (и файлы), так что .git и .conbatrc остаются
+            # rm не стирает скрытые директории (и файлы), так что .git и .fbautrc остаются
             os.system("rm -r " + self.config_dir + "/*") 
 
         for i in file_list.keys():
@@ -513,19 +509,19 @@ class ConfigManager:
         if os.path.isdir(self.config_dir + "/.git"):
             gh_username = self.git_creds_username.text()
             gh_token = self.git_creds_token.text()
-            conbat_cronjob = f"{job_type} python3 {MAIN_PATH} --auto_backup {self.rc_dir} {gh_username} {gh_token} # conbat job\n"
+            fbaut_cronjob = f"{job_type} python3 {MAIN_PATH} --auto_backup {self.rc_dir} {gh_username} {gh_token} # fbaut job\n"
         else:
-            conbat_cronjob = f"{job_type} python3 {MAIN_PATH} --auto_backup {self.rc_dir} # conbat job\n"
+            fbaut_cronjob = f"{job_type} python3 {MAIN_PATH} --auto_backup {self.rc_dir} # fbaut job\n"
 
         # удаляем старую запись и добавляем новую на её место
-        conbat_cronjob_line_id = 0
+        fbaut_cronjob_line_id = 0
         for i in range(len(crontab_contents)-1):
-            if "# conbat job" in crontab_contents[i]:
+            if "# fbaut job" in crontab_contents[i]:
                 crontab_contents.pop(i)
-                conbat_cronjob_line_id = i
+                fbaut_cronjob_line_id = i
                 break
 
-        crontab_contents.insert(conbat_cronjob_line_id, conbat_cronjob)
+        crontab_contents.insert(fbaut_cronjob_line_id, fbaut_cronjob)
 
         f = open(crontab_path, "w")
         for i in crontab_contents:
