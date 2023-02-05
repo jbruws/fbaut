@@ -144,11 +144,6 @@ class ConfigManager:
         #self.show_rc_out.resize(100, 100)
         self.grid_rc.addWidget(self.show_rc_out, 0, 4)
 
-        #self.show_rc_submit = QPushButton(self.window)
-        #self.show_rc_submit.clicked.connect(self.show_rc)
-        #self.show_rc_submit.setText("Показать/скрыть rc")
-        #self.grid_rc.addWidget(self.show_rc_submit, 0, 2)
-
         ## ВКЛАДКА 2
 
         # Создание git-репозитория
@@ -256,9 +251,6 @@ class ConfigManager:
         return None
 
     def set_rc_common(self, dir_name):
-        if dir_name == None: # если юзер ничего не выбрал
-            return 1
-
         self.rc_dir = dir_name
         os.chdir(self.rc_dir)
         self.config_dir = self.rc_dir + "/configs"
@@ -279,12 +271,12 @@ class ConfigManager:
 
     def set_rc_dialog(self):
         rc = self.generic_dialog()
-        self.set_rc_common("/".join((rc.split("/"))[:-1])) # Подаём все, кроме последнего элемента
+        if rc != None:
+            self.set_rc_common("/".join((rc.split("/"))[:-1])) # Подаём все, кроме последнего элемента
 
     @rc_check
     def cache_file_dialog(self):
         self.to_be_cached = self.generic_dialog("file")
-        #print(filename)
         if self.to_be_cached != None:
             self.cache()
 
@@ -321,22 +313,23 @@ class ConfigManager:
         except FileNotFoundError:
             self.reset_output("err", ".fbautrc не найден")
             return 1
+        except json.decoder.JSONDecodeError:
+            self.reset_output("err", "неправильно структурированный rc-файл")
+            return 1
 
-        contents_string = "__________ .fbautrc __________\n"
+        contents_string = " .fbautrc \n"
         for i in list(contents.keys()):
             if contents[i][0] == "f":
                 contents_string += "file | {:>20} |\n".format(i)
             else:
                 contents_string += "dir  | {:>20} | mask = {:<8}\n".format(i, contents[i][1])
         if self.show_rc_out.text() == contents_string:
-            self.show_rc_out.setText("__________ .fbautrc __________")
+            self.show_rc_out.setText(" .fbautrc ")
         else:
             self.show_rc_out.setText(contents_string)
         
     @rc_check
     def cache(self):
-        filename = self.preprocess(self.to_be_cached)
-
         # Если rc-файл пуст, присваиваем переменной пустой словарь
         if not os.path.isfile(self.rc_name):
             rc_contents = {}
@@ -366,10 +359,8 @@ class ConfigManager:
         if self.cache_mask_in.text() == "":
             self.reset_output("err", "введите маску файла")
             return 1
-        args_raw = [self.cache_mask_in.text(), self.to_be_cached]
-        args = self.preprocess(args_raw)
-        mask = args[0]
-        filenames = args[1:]
+        mask = self.cache_mask_in.text()
+        filenames = self.to_be_cached 
         
         # Если rc-файл пуст, присваиваем переменной пустой словарь
         if not os.path.isfile(self.rc_name):
@@ -416,8 +407,6 @@ class ConfigManager:
 
     @rc_check
     def backup(self):
-        #custom_commit_msg = True
-
         file_list = json.load(open(self.rc_name, "r"))
         if not os.path.isdir(self.config_dir):
             os.mkdir(self.config_dir)
@@ -463,7 +452,6 @@ class ConfigManager:
 
     @rc_check
     def git_init(self):
-        origin_link = self.preprocess(self.git_init_in.text())
         repo_name = origin_link.split("/")[-1]
 
         f = open(".reponame", "w")
@@ -488,9 +476,9 @@ class ConfigManager:
     def schedule(self):
         cronjob_types = {"ежедневно": "@daily", "еженедельно": "@weekly", "ежемесячно": "@monthly"}
         job_type = cronjob_types[self.schedule_choices.currentText()]
-        cron_status = os.popen("systemctl --no-pager status cronie").read()
 
         # Включаем cron при необходимости
+        cron_status = os.popen("systemctl --no-pager status cronie").read()
         if "disabled; preset: disabled" in cron_status or "inactive (dead)" in cron_status:
             print("cron выключен. Запускаем сервис...")
             os.system("sudo systemctl enable cronie")
