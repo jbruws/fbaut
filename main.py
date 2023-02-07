@@ -323,10 +323,10 @@ class ConfigManager:
                 contents_string += "file | {:>20} |\n".format(i)
             else:
                 contents_string += "dir  | {:>20} | mask = {:<8}\n".format(i, contents[i][1])
-        if self.show_rc_out.text() == contents_string:
-            self.show_rc_out.setText(" .fbautrc ")
-        else:
-            self.show_rc_out.setText(contents_string)
+        #if self.show_rc_out.text() == contents_string:
+        #    self.show_rc_out.setText(" .fbautrc ")
+        #else:
+        self.show_rc_out.setText(contents_string)
         
     @rc_check
     def cache(self):
@@ -340,6 +340,7 @@ class ConfigManager:
 
         # Записываем, учитывая тип  (файл/директория)
         # "*" значит отсутствие маски
+        filename = self.to_be_cached
         if os.path.isfile(filename):
             rc_contents[filename] = ["f", "*"]
         elif os.path.isdir(filename):
@@ -360,8 +361,7 @@ class ConfigManager:
             self.reset_output("err", "введите маску файла")
             return 1
         mask = self.cache_mask_in.text()
-        filenames = self.to_be_cached 
-        
+        filename = self.to_be_cached 
         # Если rc-файл пуст, присваиваем переменной пустой словарь
         if not os.path.isfile(self.rc_name):
             rc_contents = {}
@@ -371,13 +371,12 @@ class ConfigManager:
             f.close()
 
         # Записываем
-        for i in filenames:
-            if os.path.isfile(i):
-                print("Сохранять с маской можно только директории. Пропускаем...")
-            elif os.path.isdir(i):
-                rc_contents[i] = ["d", mask]
-            else:
-                print(i + " - несуществующая директория. Пропускаем...")
+        if os.path.isfile(filename):
+            print("Сохранять с маской можно только директории. Пропускаем...")
+        elif os.path.isdir(filename):
+            rc_contents[filename] = ["d", mask]
+        else:
+            print(filename + " - несуществующая директория. Пропускаем...")
        
         f = open(self.rc_name, "w")
         f.write(json.dumps(rc_contents, indent=4))
@@ -413,12 +412,13 @@ class ConfigManager:
         else:
             # rm не стирает скрытые директории (и файлы), так что .git и .fbautrc остаются
             os.system("rm -r " + self.config_dir + "/*") 
-
+        print(self.rc_dir)
         for i in file_list.keys():
+            print(i)
             if file_list[i][1] == "*": # без маски
-                os.system("find \"" + i + "\" -not -path \"" + self.config_dir + "\" -exec cp -r --parents {} " + self.config_dir + " \;")
+                os.system("find \"" + i + "\" -not -path \"" + self.rc_dir + "/*\" -exec cp -r --parents {} " + self.config_dir + " \;")
             else: # с маской
-                os.system("find \"" + i + "\" -name \"" + file_list[i][1] + "\" -not -path \"" + self.config_dir + "\" -exec cp -r --parents {} " + self.config_dir + " \;")
+                os.system("find \"" + i + "\" -name \"" + file_list[i][1] + "/*\" -not -path \"" + self.rc_dir + "\" -exec cp -r --parents {} " + self.config_dir + " \;")
 
         # если есть git-репозиторий
         if os.path.isdir(self.config_dir + "/.git"):
@@ -445,8 +445,8 @@ class ConfigManager:
             os.system('git commit -m "{}"'.format(commit_msg))
             os.system('git push https://{}:{}@github.com/{}/{}'.format(gh_username, gh_token, gh_username, repo_name))
             os.chdir(self.rc_dir)
-        
-        if not self.no_gui:
+
+        if (not self.no_gui):
             self.reset_output("success")
             self.show_rc()
 
