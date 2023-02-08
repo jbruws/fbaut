@@ -323,9 +323,6 @@ class ConfigManager:
                 contents_string += "file | {:>20} |\n".format(i)
             else:
                 contents_string += "dir  | {:>20} | mask = {:<8}\n".format(i, contents[i][1])
-        #if self.show_rc_out.text() == contents_string:
-        #    self.show_rc_out.setText(" .fbautrc ")
-        #else:
         self.show_rc_out.setText(contents_string)
         
     @rc_check
@@ -360,6 +357,7 @@ class ConfigManager:
         if self.cache_mask_in.text() == "":
             self.reset_output("err", "введите маску файла")
             return 1
+
         mask = self.cache_mask_in.text()
         filename = self.to_be_cached 
         # Если rc-файл пуст, присваиваем переменной пустой словарь
@@ -411,14 +409,15 @@ class ConfigManager:
             os.mkdir(self.config_dir)
         else:
             # rm не стирает скрытые директории (и файлы), так что .git и .fbautrc остаются
+            # или стирает? TODO
             os.system("rm -r " + self.config_dir + "/*") 
-        print(self.rc_dir)
+        
         for i in file_list.keys():
             print(i)
             if file_list[i][1] == "*": # без маски
                 os.system("find \"" + i + "\" -not -path \"" + self.rc_dir + "/*\" -exec cp -r --parents {} " + self.config_dir + " \;")
             else: # с маской
-                os.system("find \"" + i + "\" -name \"" + file_list[i][1] + "/*\" -not -path \"" + self.rc_dir + "\" -exec cp -r --parents {} " + self.config_dir + " \;")
+                os.system("find \"" + i + "\" -wholename \"" + file_list[i][1] + "\" -not -path \"" + self.rc_dir + "/*\" -exec cp -r --parents {} " + self.config_dir + " \;")
 
         # если есть git-репозиторий
         if os.path.isdir(self.config_dir + "/.git"):
