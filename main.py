@@ -261,6 +261,8 @@ class ConfigManager:
 
     def create_rc_dialog(self): 
         rc_dir = self.generic_dialog("dir")
+        if rc_dir == None:
+            return 1
         full_name = rc_dir + "/.fbautrc"
         if not os.path.isfile(full_name):
             # создаём файл
