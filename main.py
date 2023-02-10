@@ -274,7 +274,8 @@ class ConfigManager:
     def set_rc_dialog(self):
         rc = self.generic_dialog()
         if rc != None:
-            self.set_rc_common("/".join((rc.split("/"))[:-1])) # Подаём все, кроме последнего элемента
+            rc_dir_name = "/".join((rc.split("/"))[:-1]) # последний элемент пути - имя файла (не нужно)
+            self.set_rc_common(rc_dir_name)
 
     @rc_check
     def cache_file_dialog(self):
@@ -329,7 +330,7 @@ class ConfigManager:
         
     @rc_check
     def cache(self):
-        # Если rc-файл пуст, присваиваем переменной пустой словарь
+        # Если rc-файлa нет, присваиваем переменной пустой словарь
         if not os.path.isfile(self.rc_name):
             rc_contents = {}
         else:
@@ -362,7 +363,7 @@ class ConfigManager:
 
         mask = self.cache_mask_in.text()
         filename = self.to_be_cached 
-        # Если rc-файл пуст, присваиваем переменной пустой словарь
+        # Если rc-файла нет, присваиваем переменной пустой словарь
         if not os.path.isfile(self.rc_name):
             rc_contents = {}
         else:
@@ -410,19 +411,18 @@ class ConfigManager:
         if not os.path.isdir(self.config_dir):
             os.mkdir(self.config_dir)
         else:
-            # rm не стирает скрытые директории (и файлы), так что .git и .fbautrc остаются
-            # или стирает? TODO
-            os.system("rm -r " + self.config_dir + "/*") 
+            # стираем старые копии файлов
+            os.system("rm -rf " + self.config_dir + "/*") 
         
         for i in file_list.keys():
-            print(i)
+            #print(i)
             if file_list[i][1] == "*": # без маски
                 os.system("find \"" + i + "\" -not -path \"" + self.rc_dir + "/*\" -exec cp -r --parents {} " + self.config_dir + " \;")
             else: # с маской
                 os.system("find \"" + i + "\" -wholename \"" + file_list[i][1] + "\" -not -path \"" + self.rc_dir + "/*\" -exec cp -r --parents {} " + self.config_dir + " \;")
 
         # если есть git-репозиторий
-        if os.path.isdir(self.config_dir + "/.git"):
+        if os.path.isdir(self.rc_dir + "/.git"):
             f = open(".reponame", "r")
             repo_name = f.readlines()[0]
             f.close()
@@ -442,9 +442,12 @@ class ConfigManager:
             else:
                 gh_username = self.git_creds_username.text()
                 gh_token = self.git_creds_token.text()
-                
-            os.system('git commit -m "{}"'.format(commit_msg))
-            os.system('git push https://{}:{}@github.com/{}/{}'.format(gh_username, gh_token, gh_username, repo_name))
+            
+            if not ("" in [gh_username, gh_token]):
+                os.system('git commit -m "{}"'.format(commit_msg))
+                os.system('git push https://{}:{}@github.com/{}/{}'.format(gh_username, gh_token, gh_username, repo_name))
+            else:
+                self.reset_output("err", "укажите данные для аккаунта GitHub")
             os.chdir(self.rc_dir)
 
         if (not self.no_gui):
@@ -453,23 +456,26 @@ class ConfigManager:
 
     @rc_check
     def git_init(self):
-        repo_name = origin_link.split("/")[-1]
+        if self.git_init_in.text() == "":
+            self.reset_output("err", "предоставьте ссылку на удаленный репозиторий")
+            return 1
+
+        repo_name = self.git_init_in.text().split("/")[-1]
 
         f = open(".reponame", "w")
         f.write(repo_name)
         f.close()
 
-        if os.path.isdir(self.config_dir + "/.git"):
+        if os.path.isdir(self.rc_dir + "/.git"):
             self.reset_output("err", "репозиторий Git уже существует в рабочей директории.")
             return 1
 
-        if not os.path.isdir(self.config_dir):
-            os.mkdir(self.config_dir)
+        if not os.path.isdir(self.rc_dir):
+            os.mkdir(self.rc_dir)
         
-        os.chdir(self.config_dir)
-        os.system("git init")
-        os.system("git remote add origin " + origin_link)
         os.chdir(self.rc_dir)
+        os.system("git init")
+        os.system("git remote add origin " + self.git_init_in.text())
         
         self.reset_output("success")
 
