@@ -1,0 +1,7 @@
+Name = "fbaut"
+Author=["br-netw"]
+Description = "An automated fille backup utility written in PyQt5."
+Dependencies = ["python3", "python3-pip"]
+AfterInstallScript = "pip3 install pyqt5"
+RunApplication = "python3 main.py"
+
